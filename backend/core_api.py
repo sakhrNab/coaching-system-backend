@@ -57,8 +57,27 @@ class WhatsAppWebhook(BaseModel):
     object: str
     entry: List[Dict[str, Any]]
 
+class CategoryCreate(BaseModel):
+    name: str
+
+class TemplateCreate(BaseModel):
+    message_type: str
+    content: str
+
+class ImportData(BaseModel):
+    source: str
+    data: str
+
+class GoogleContactsImport(BaseModel):
+    access_token: str
+
+class VoiceProcessRequest(BaseModel):
+    audio_url: str
+    coach_id: str
+
 # Use the database instance from database.py
 from .database import db
+from .google_sheets_service import sheets_service
 
 # WhatsApp Business API client
 class WhatsAppClient:
@@ -124,14 +143,19 @@ class WhatsAppClient:
 class VoiceTranscriptionService:
     def __init__(self):
         api_key = os.getenv("OPENAI_API_KEY")
-        if not api_key:
-            raise ValueError("OPENAI_API_KEY environment variable is required")
-        self.openai_client = openai.AsyncOpenAI(
-            api_key=api_key
-        )
+        if api_key:
+            self.openai_client = openai.AsyncOpenAI(api_key=api_key)
+            self.available = True
+        else:
+            self.openai_client = None
+            self.available = False
+            logger.warning("OPENAI_API_KEY not set - voice transcription will be unavailable")
     
     async def transcribe_audio(self, audio_url: str) -> str:
         """Transcribe audio using OpenAI Whisper"""
+        if not self.available:
+            raise HTTPException(status_code=503, detail="Voice transcription service unavailable - OpenAI API key not configured")
+        
         try:
             async with httpx.AsyncClient() as client:
                 audio_response = await client.get(audio_url)
@@ -159,6 +183,9 @@ class VoiceTranscriptionService:
     
     async def correct_message(self, text: str) -> str:
         """Correct grammar and improve message using GPT-4o-mini"""
+        if not self.available:
+            raise HTTPException(status_code=503, detail="Voice transcription service unavailable - OpenAI API key not configured")
+        
         try:
             response = await self.openai_client.chat.completions.create(
                 model="gpt-4o-mini",
@@ -290,11 +317,6 @@ router = APIRouter()
 
 # API Endpoints
 
-@router.options("/register")
-async def register_coach_options():
-    """Handle preflight OPTIONS request for register endpoint"""
-    return {"message": "OK"}
-
 @router.post("/register")
 async def register_coach(registration: CoachRegistration):
     """Register a new coach via barcode scan"""
@@ -367,49 +389,86 @@ async def get_clients(coach_id: str):
 async def add_client(coach_id: str, client: Client):
     """Add a new client"""
     try:
+        # Check if database is connected
+        if not hasattr(db, 'pool') or db.pool is None:
+            raise HTTPException(status_code=500, detail="Database not connected")
+        
+        # Validate coach exists
+        coach = await db.fetchrow("SELECT id FROM coaches WHERE id = $1", coach_id)
+        if not coach:
+            raise HTTPException(status_code=404, detail="Coach not found")
+        
         # Insert client
         import uuid
         client_id = str(uuid.uuid4())
+        
         await db.execute(
             """INSERT INTO clients (id, coach_id, name, phone_number, country, timezone)
                VALUES ($1, $2, $3, $4, $5, $6)""",
             client_id, coach_id, client.name, client.phone_number, client.country, client.timezone
         )
         
-        # Add categories (simplified for SQLite)
-        for category_name in client.categories:
-            category = await db.fetchrow(
-                "SELECT id FROM categories WHERE name = $1 AND (is_predefined = true OR coach_id = $2)",
-                category_name, coach_id
-            )
-            
-            if category:
-                await db.execute(
-                    "INSERT INTO client_categories (client_id, category_id) VALUES ($1, $2) ON CONFLICT DO NOTHING",
-                    client_id, category[0]
+        # Add categories if provided
+        if client.categories:
+            for category_name in client.categories:
+                # Check if category exists (predefined or custom for this coach)
+                category = await db.fetchrow(
+                    "SELECT id FROM categories WHERE name = $1 AND (is_predefined = true OR coach_id = $2)",
+                    category_name, coach_id
                 )
+                
+                if category:
+                    await db.execute(
+                        "INSERT INTO client_categories (client_id, category_id) VALUES ($1, $2) ON CONFLICT DO NOTHING",
+                        client_id, category[0]
+                    )
+                else:
+                    # Create custom category if it doesn't exist
+                    category_id = str(uuid.uuid4())
+                    await db.execute(
+                        "INSERT INTO categories (id, name, coach_id, is_predefined) VALUES ($1, $2, $3, false)",
+                        category_id, category_name, coach_id
+                    )
+                    await db.execute(
+                        "INSERT INTO client_categories (client_id, category_id) VALUES ($1, $2)",
+                        client_id, category_id
+                    )
         
         return {"client_id": client_id, "status": "created"}
     
     except Exception as e:
         logger.error(f"Add client error: {e}")
-        raise HTTPException(status_code=500, detail="Failed to add client")
+        raise HTTPException(status_code=500, detail=f"Failed to add client: {str(e)}")
 
 @router.post("/messages/send")
 async def send_messages(message_request: MessageRequest, background_tasks: BackgroundTasks):
     """Send messages to selected clients"""
     try:
+        # Check if database is connected
+        if not hasattr(db, 'pool') or db.pool is None:
+            raise HTTPException(status_code=500, detail="Database not connected")
+        
         async with db.pool.acquire() as conn:
             message_ids = []
             
             for client_id in message_request.client_ids:
+                # Validate client exists and belongs to a coach
+                client = await conn.fetchrow(
+                    "SELECT id, coach_id FROM clients WHERE id = $1 AND is_active = true",
+                    client_id
+                )
+                
+                if not client:
+                    logger.warning(f"Client {client_id} not found or inactive")
+                    continue
+                
                 # Create scheduled message record
                 scheduled_id = await conn.fetchval(
                     """INSERT INTO scheduled_messages 
                        (coach_id, client_id, message_type, content, schedule_type, scheduled_time, status)
-                       VALUES ((SELECT coach_id FROM clients WHERE id = $1), $1, $2, $3, $4, $5, $6)
+                       VALUES ($1, $2, $3, $4, $5, $6, $7)
                        RETURNING id""",
-                    client_id, message_request.message_type, message_request.content,
+                    client['coach_id'], client_id, message_request.message_type, message_request.content,
                     message_request.schedule_type, message_request.scheduled_time,
                     'scheduled' if message_request.schedule_type != 'now' else 'pending'
                 )
@@ -420,11 +479,14 @@ async def send_messages(message_request: MessageRequest, background_tasks: Backg
                 if message_request.schedule_type == 'now':
                     background_tasks.add_task(send_immediate_message, str(scheduled_id))
         
+        if not message_ids:
+            raise HTTPException(status_code=400, detail="No valid clients found")
+        
         return {"message_ids": message_ids, "status": "scheduled"}
     
     except Exception as e:
         logger.error(f"Send messages error: {e}")
-        raise HTTPException(status_code=500, detail="Failed to schedule messages")
+        raise HTTPException(status_code=500, detail=f"Failed to schedule messages: {str(e)}")
 
 async def send_immediate_message(scheduled_message_id: str):
     """Background task to send immediate message"""
@@ -735,23 +797,236 @@ async def add_custom_category(coach_id: str, category_name: str):
 async def export_to_google_sheets(coach_id: str):
     """Export client data to Google Sheets"""
     try:
+        # Check if database is connected
+        if not hasattr(db, 'pool') or db.pool is None:
+            raise HTTPException(status_code=500, detail="Database not connected")
+        
         async with db.pool.acquire() as conn:
-            client_data = await conn.fetch(
-                "SELECT * FROM get_client_export_data($1)",
-                coach_id
-            )
+            # Get comprehensive client data
+            client_data = await conn.fetch("""
+                SELECT 
+                    c.id,
+                    c.name,
+                    c.phone_number,
+                    c.country,
+                    c.timezone,
+                    c.created_at,
+                    c.updated_at,
+                    STRING_AGG(DISTINCT cat.name, ', ') as categories,
+                    COUNT(DISTINCT g.id) as goals_count,
+                    MAX(CASE WHEN mh.message_type = 'celebration' THEN mh.sent_at END) as last_celebration_sent,
+                    MAX(CASE WHEN mh.message_type = 'accountability' THEN mh.sent_at END) as last_accountability_sent,
+                    CASE 
+                        WHEN COUNT(sm.id) > 0 THEN 'Has Scheduled Messages'
+                        WHEN COUNT(mh.id) > 0 THEN 'Messages Sent'
+                        ELSE 'New Client'
+                    END as status
+                FROM clients c
+                LEFT JOIN client_categories cc ON c.id = cc.client_id
+                LEFT JOIN categories cat ON cc.category_id = cat.id
+                LEFT JOIN goals g ON c.id = g.client_id AND g.is_achieved = false
+                LEFT JOIN message_history mh ON c.id = mh.client_id
+                LEFT JOIN scheduled_messages sm ON c.id = sm.client_id AND sm.status = 'scheduled'
+                WHERE c.coach_id = $1 AND c.is_active = true
+                GROUP BY c.id, c.name, c.phone_number, c.country, c.timezone, c.created_at, c.updated_at
+                ORDER BY c.name
+            """, coach_id)
             
-            sheet_id = await sheets_service.create_or_update_sheet(
-                coach_id, [dict(row) for row in client_data]
-            )
+            # Format data for Google Sheets
+            formatted_data = []
+            for row in client_data:
+                formatted_data.append({
+                    "name": row['name'],
+                    "phone_number": row['phone_number'],
+                    "country": row['country'],
+                    "timezone": row['timezone'],
+                    "categories": row['categories'].split(', ') if row['categories'] else [],
+                    "goals_count": row['goals_count'],
+                    "last_celebration_sent": row['last_celebration_sent'].isoformat() if row['last_celebration_sent'] else '',
+                    "last_accountability_sent": row['last_accountability_sent'].isoformat() if row['last_accountability_sent'] else '',
+                    "status": row['status'],
+                    "created_at": row['created_at'].isoformat() if row['created_at'] else '',
+                    "updated_at": row['updated_at'].isoformat() if row['updated_at'] else ''
+                })
             
-            sheet_url = f"https://docs.google.com/spreadsheets/d/{sheet_id}"
-            
-            return {"sheet_url": sheet_url, "status": "exported"}
+            # Try to create/update Google Sheet
+            if sheets_service.is_available():
+                sheet_id = await sheets_service.create_or_update_sheet(coach_id, formatted_data)
+                
+                if sheet_id:
+                    sheet_url = f"https://docs.google.com/spreadsheets/d/{sheet_id}/edit"
+                    return {
+                        "status": "exported",
+                        "sheet_url": sheet_url,
+                        "sheet_id": sheet_id,
+                        "clients_count": len(formatted_data),
+                        "message": "Data successfully exported to Google Sheets"
+                    }
+                else:
+                    # Fallback to JSON if Google Sheets fails
+                    return {
+                        "status": "partial_export",
+                        "data": formatted_data,
+                        "message": "Google Sheets export failed, returning data as JSON"
+                    }
+            else:
+                # Google Sheets not configured, return JSON
+                return {
+                    "status": "json_export",
+                    "data": formatted_data,
+                    "message": "Google Sheets not configured, returning data as JSON"
+                }
     
     except Exception as e:
         logger.error(f"Export error: {e}")
-        raise HTTPException(status_code=500, detail="Export failed")
+        raise HTTPException(status_code=500, detail=f"Export failed: {str(e)}")
+
+@router.get("/coaches/{coach_id}/stats")
+async def get_coach_stats(coach_id: str):
+    """Get coach performance statistics"""
+    try:
+        # Check if database is connected
+        if not hasattr(db, 'pool') or db.pool is None:
+            raise HTTPException(status_code=500, detail="Database not connected")
+        
+        async with db.pool.acquire() as conn:
+            # Get total clients
+            total_clients = await conn.fetchval(
+                "SELECT COUNT(*) FROM clients WHERE coach_id = $1 AND is_active = true",
+                coach_id
+            )
+            
+            # Get messages sent this month
+            messages_sent_month = await conn.fetchval(
+                """SELECT COUNT(*) FROM message_history 
+                   WHERE coach_id = $1 AND sent_at >= DATE_TRUNC('month', CURRENT_DATE)""",
+                coach_id
+            )
+            
+            # Get pending messages
+            pending_messages = await conn.fetchval(
+                "SELECT COUNT(*) FROM scheduled_messages WHERE coach_id = $1 AND status = 'scheduled'",
+                coach_id
+            )
+            
+            # Get active goals
+            active_goals = await conn.fetchval(
+                "SELECT COUNT(*) FROM goals g JOIN clients c ON g.client_id = c.id WHERE c.coach_id = $1 AND g.is_achieved = false",
+                coach_id
+            )
+            
+            # Get recent activity
+            recent_activity = await conn.fetch(
+                """SELECT 'message_sent' as type, sent_at as timestamp, content as description
+                   FROM message_history 
+                   WHERE coach_id = $1 
+                   ORDER BY sent_at DESC 
+                   LIMIT 5""",
+                coach_id
+            )
+            
+            return {
+                "total_clients": total_clients or 0,
+                "messages_sent_month": messages_sent_month or 0,
+                "pending_messages": pending_messages or 0,
+                "active_goals": active_goals or 0,
+                "recent_activity": [dict(row) for row in recent_activity]
+            }
+    
+    except Exception as e:
+        logger.error(f"Get coach stats error: {e}")
+        raise HTTPException(status_code=500, detail=f"Failed to get coach stats: {str(e)}")
+
+@router.get("/coaches/{coach_id}/analytics")
+async def get_coach_analytics(coach_id: str):
+    """Get detailed analytics for a coach"""
+    try:
+        # Check if database is connected
+        if not hasattr(db, 'pool') or db.pool is None:
+            raise HTTPException(status_code=500, detail="Database not connected")
+        
+        async with db.pool.acquire() as conn:
+            # Get message analytics by type
+            message_analytics = await conn.fetch(
+                """SELECT message_type, COUNT(*) as count, 
+                          COUNT(CASE WHEN delivery_status = 'delivered' THEN 1 END) as delivered,
+                          COUNT(CASE WHEN delivery_status = 'read' THEN 1 END) as read
+                   FROM message_history 
+                   WHERE coach_id = $1 
+                   GROUP BY message_type""",
+                coach_id
+            )
+            
+            # Get client engagement
+            client_engagement = await conn.fetch(
+                """SELECT c.name, COUNT(mh.id) as messages_received,
+                          MAX(mh.sent_at) as last_interaction
+                   FROM clients c
+                   LEFT JOIN message_history mh ON c.id = mh.client_id
+                   WHERE c.coach_id = $1 AND c.is_active = true
+                   GROUP BY c.id, c.name
+                   ORDER BY messages_received DESC""",
+                coach_id
+            )
+            
+            return {
+                "message_analytics": [dict(row) for row in message_analytics],
+                "client_engagement": [dict(row) for row in client_engagement],
+                "total_clients": len(client_engagement)
+            }
+    
+    except Exception as e:
+        logger.error(f"Get coach analytics error: {e}")
+        raise HTTPException(status_code=500, detail=f"Failed to get coach analytics: {str(e)}")
+
+@router.get("/coaches/{coach_id}/goals")
+async def get_coach_goals(coach_id: str):
+    """Get all goals for a coach's clients"""
+    try:
+        # Check if database is connected
+        if not hasattr(db, 'pool') or db.pool is None:
+            raise HTTPException(status_code=500, detail="Database not connected")
+        
+        async with db.pool.acquire() as conn:
+            goals = await conn.fetch(
+                """SELECT g.*, c.name as client_name, cat.name as category_name
+                   FROM goals g
+                   JOIN clients c ON g.client_id = c.id
+                   LEFT JOIN categories cat ON g.category_id = cat.id
+                   WHERE c.coach_id = $1
+                   ORDER BY g.created_at DESC""",
+                coach_id
+            )
+            
+            return [dict(row) for row in goals]
+    
+    except Exception as e:
+        logger.error(f"Get coach goals error: {e}")
+        raise HTTPException(status_code=500, detail=f"Failed to get coach goals: {str(e)}")
+
+@router.get("/coaches/{coach_id}/scheduled-messages")
+async def get_scheduled_messages(coach_id: str):
+    """Get all scheduled messages for a coach"""
+    try:
+        # Check if database is connected
+        if not hasattr(db, 'pool') or db.pool is None:
+            raise HTTPException(status_code=500, detail="Database not connected")
+        
+        async with db.pool.acquire() as conn:
+            messages = await conn.fetch(
+                """SELECT sm.*, c.name as client_name
+                   FROM scheduled_messages sm
+                   JOIN clients c ON sm.client_id = c.id
+                   WHERE sm.coach_id = $1
+                   ORDER BY sm.scheduled_time ASC""",
+                coach_id
+            )
+            
+            return [dict(row) for row in messages]
+    
+    except Exception as e:
+        logger.error(f"Get scheduled messages error: {e}")
+        raise HTTPException(status_code=500, detail=f"Failed to get scheduled messages: {str(e)}")
 
 # Scheduler service (would run as separate service in production)
 class MessageScheduler:

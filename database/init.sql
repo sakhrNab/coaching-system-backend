@@ -149,6 +149,29 @@ CREATE TABLE IF NOT EXISTS voice_message_processing (
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 
+-- Create Google Sheets sync table
+CREATE TABLE IF NOT EXISTS google_sheets_sync (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    coach_id UUID NOT NULL REFERENCES coaches(id) ON DELETE CASCADE,
+    sheet_id VARCHAR(255),
+    sheet_url TEXT,
+    last_sync_at TIMESTAMP WITH TIME ZONE,
+    sync_status VARCHAR(20) DEFAULT 'pending',
+    row_count INTEGER DEFAULT 0,
+    error_message TEXT,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Create WhatsApp webhooks table
+CREATE TABLE IF NOT EXISTS whatsapp_webhooks (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    webhook_data JSONB NOT NULL,
+    processed_at TIMESTAMP WITH TIME ZONE,
+    processing_status VARCHAR(20) DEFAULT 'received',
+    error_message TEXT,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
 -- Create indexes for better performance
 CREATE INDEX IF NOT EXISTS idx_coaches_registration_barcode ON coaches(registration_barcode);
 CREATE INDEX IF NOT EXISTS idx_coaches_whatsapp_token ON coaches(whatsapp_token);
@@ -158,5 +181,7 @@ CREATE INDEX IF NOT EXISTS idx_message_history_coach_id ON message_history(coach
 CREATE INDEX IF NOT EXISTS idx_message_history_client_id ON message_history(client_id);
 CREATE INDEX IF NOT EXISTS idx_scheduled_messages_status ON scheduled_messages(status);
 CREATE INDEX IF NOT EXISTS idx_voice_processing_status ON voice_message_processing(processing_status);
+CREATE INDEX IF NOT EXISTS idx_google_sheets_sync_coach_id ON google_sheets_sync(coach_id);
+CREATE INDEX IF NOT EXISTS idx_whatsapp_webhooks_status ON whatsapp_webhooks(processing_status);
 
 SELECT 'Database initialized successfully - all tables created' as status;

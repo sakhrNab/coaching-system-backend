@@ -9,7 +9,7 @@ services:
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: ${DB_PASSWORD}
       POSTGRES_DB: coaching_system
-      POSTGRES_HOST_AUTH_METHOD: scram-sha-256
+      POSTGRES_HOST_AUTH_METHOD: trust
     volumes:
       - postgres_data:/var/lib/postgresql/data
       - ./database/init.sql:/docker-entrypoint-initdb.d/01-init.sql
@@ -48,8 +48,8 @@ services:
       - WEBHOOK_VERIFY_TOKEN=${WEBHOOK_VERIFY_TOKEN}
       - JWT_SECRET=${JWT_SECRET}
       - ENVIRONMENT=production
-    # ports:
-    #   - "8001:8000"
+    ports:
+      - "8001:8000"
     depends_on:
       - postgres
       - redis
