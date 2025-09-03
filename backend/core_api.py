@@ -290,6 +290,11 @@ router = APIRouter()
 
 # API Endpoints
 
+@router.options("/register")
+async def register_coach_options():
+    """Handle preflight OPTIONS request for register endpoint"""
+    return {"message": "OK"}
+
 @router.post("/register")
 async def register_coach(registration: CoachRegistration):
     """Register a new coach via barcode scan"""
