@@ -1,0 +1,51 @@
+# make sure to include the .env file
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# database backups
+backup/
+
+# django migrations
+backend/backend/migrations/
+
+# cache
+backend/backend/cache/
+
+# Python cache files
+__pycache__/
+__pycache__/**
+**/__pycache__/
+**/__pycache__/**
+
+# Byte-compiled / optimized / DLL files
+*.py[cod]
+*$py.class
+
+# Distribution / packaging
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+pip-wheel-metadata/
+share/python-wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+
+# docs
+docs/
+SETUP_GUIDE.md
+COOLIFY_DEPLOYMENT.md
