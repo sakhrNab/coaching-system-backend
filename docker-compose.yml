@@ -48,8 +48,8 @@ services:
       - WEBHOOK_VERIFY_TOKEN=${WEBHOOK_VERIFY_TOKEN}
       - JWT_SECRET=${JWT_SECRET}
       - ENVIRONMENT=production
-    ports:
-      - "8001:8000"
+    # ports:
+    #   - "8001:8000"
     depends_on:
       - postgres
       - redis
