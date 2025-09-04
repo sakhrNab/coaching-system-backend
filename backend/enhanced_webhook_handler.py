@@ -112,12 +112,22 @@ async def process_message_webhook(value: Dict[str, Any]):
             
             # Create user-initiated conversation window (24 hours from now)
             try:
+                logger.info(f"🔍 Attempting to create conversation window for {wa_id}")
+                
+                # Check if database pool is available
+                if not db.pool:
+                    logger.error("❌ Database pool not available")
+                    return
+                
                 async with db.pool.acquire() as conn:
+                    logger.info(f"🔍 Database connection acquired for {wa_id}")
+                    
                     # Deactivate existing conversations for this user
                     await conn.execute(
                         "UPDATE whatsapp_conversations SET is_active = false WHERE wa_id = $1",
                         wa_id
                     )
+                    logger.info(f"🔍 Deactivated existing conversations for {wa_id}")
                     
                     # Insert new user-initiated conversation (24 hours from now)
                     expires_at = datetime.now(timezone.utc) + timedelta(hours=24)
@@ -131,7 +141,10 @@ async def process_message_webhook(value: Dict[str, Any]):
                     logger.info(f"✅ Created 24h conversation window for {wa_id} until {expires_at}")
                     
             except Exception as db_error:
-                logger.error(f"Database error creating conversation: {db_error}")
+                logger.error(f"❌ Database error creating conversation: {db_error}")
+                logger.error(f"❌ Error type: {type(db_error)}")
+                import traceback
+                logger.error(f"❌ Traceback: {traceback.format_exc()}")
             
     except Exception as e:
         logger.error(f"Error processing message webhook: {e}")
