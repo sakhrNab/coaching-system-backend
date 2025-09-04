@@ -67,18 +67,49 @@ class WhatsAppClient:
     def __init__(self, access_token: str, phone_number_id: str):
         self.access_token = access_token
         self.phone_number_id = phone_number_id
-        self.base_url = "https://graph.facebook.com/v18.0"
+        self.base_url = "https://graph.facebook.com/v22.0"
     
-    async def send_message(self, to: str, message: str) -> dict:
-        """Send WhatsApp message"""
+    async def send_message(self, to: str, message: str, template_name: str = "hello_world") -> dict:
+        """Send WhatsApp template message"""
         url = f"{self.base_url}/{self.phone_number_id}/messages"
         headers = {
             "Authorization": f"Bearer {self.access_token}",
             "Content-Type": "application/json"
         }
+        
+        # Clean phone number - remove all non-digits
+        clean_phone = ''.join(filter(str.isdigit, to))
+        
         payload = {
             "messaging_product": "whatsapp",
-            "to": to.replace('+', '').replace('-', '').replace(' ', ''),
+            "to": clean_phone,
+            "type": "template",
+            "template": {
+                "name": template_name,
+                "language": {
+                    "code": "en_US"
+                }
+            }
+        }
+        
+        async with httpx.AsyncClient(timeout=30.0) as client:
+            response = await client.post(url, headers=headers, json=payload)
+            return response.json()
+    
+    async def send_text_message(self, to: str, message: str) -> dict:
+        """Send WhatsApp text message (fallback)"""
+        url = f"{self.base_url}/{self.phone_number_id}/messages"
+        headers = {
+            "Authorization": f"Bearer {self.access_token}",
+            "Content-Type": "application/json"
+        }
+        
+        # Clean phone number - remove all non-digits
+        clean_phone = ''.join(filter(str.isdigit, to))
+        
+        payload = {
+            "messaging_product": "whatsapp",
+            "to": clean_phone,
             "type": "text",
             "text": {"body": message}
         }
@@ -105,9 +136,12 @@ class WhatsAppClient:
                 }
             })
         
+        # Clean phone number - remove all non-digits
+        clean_phone = ''.join(filter(str.isdigit, to))
+        
         payload = {
             "messaging_product": "whatsapp",
-            "to": to.replace('+', '').replace('-', '').replace(' ', ''),
+            "to": clean_phone,
             "type": "interactive",
             "interactive": {
                 "type": "button",

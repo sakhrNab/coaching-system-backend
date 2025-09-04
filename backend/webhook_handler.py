@@ -259,7 +259,7 @@ async def get_whatsapp_media_url(access_token: str, media_id: str) -> str:
         async with httpx.AsyncClient() as client:
             # Get media info
             response = await client.get(
-                f"https://graph.facebook.com/v18.0/{media_id}",
+                f"https://graph.facebook.com/v22.0/{media_id}",
                 headers=headers
             )
             media_info = response.json()
