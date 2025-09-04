@@ -131,6 +131,7 @@ class WhatsAppClient:
     
     async def send_text_message(self, to: str, message: str) -> Dict[str, Any]:
         """Send a text message via WhatsApp Business API (fallback method)"""
+        print(f"🔥 SEND_TEXT_MESSAGE CALLED - to: {to}, message: {message}")
         logger.info(f"🔥 SEND_TEXT_MESSAGE CALLED - to: {to}, message: {message}")
         url = f"{self.base_url}/{self.phone_number_id}/messages"
         headers = {
@@ -566,6 +567,7 @@ async def send_messages(message_request: MessageRequest, background_tasks: Backg
 
 async def send_immediate_message(scheduled_message_id: str):
     """Background task to send immediate message"""
+    print(f"🚀 Starting background task for message ID: {scheduled_message_id}")
     logger.info(f"🚀 Starting background task for message ID: {scheduled_message_id}")
     try:
         async with db.pool.acquire() as conn:
