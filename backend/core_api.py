@@ -549,7 +549,7 @@ async def send_immediate_message(scheduled_message_id: str):
             
             # Send via WhatsApp
             whatsapp_client = WhatsAppClient(
-                message_data['whatsapp_token'],
+                os.getenv("WHATSAPP_ACCESS_TOKEN"),
                 os.getenv("WHATSAPP_PHONE_NUMBER_ID")
             )
             
@@ -606,7 +606,7 @@ async def process_voice_message(voice_data: VoiceMessageProcessing):
             
             # Send confirmation message with buttons
             coach_data = await conn.fetchrow("SELECT * FROM coaches WHERE id = $1", voice_data.coach_id)
-            whatsapp_client = WhatsAppClient(coach_data['whatsapp_token'], os.getenv("WHATSAPP_PHONE_NUMBER_ID"))
+            whatsapp_client = WhatsAppClient(os.getenv("WHATSAPP_ACCESS_TOKEN"), os.getenv("WHATSAPP_PHONE_NUMBER_ID"))
             
             confirmation_message = f"Corrected message:\n\n{corrected_text}\n\nPlease confirm or edit:"
             buttons = [
@@ -787,7 +787,7 @@ async def send_google_sheet_to_coach(coach_id: str):
             
             # Send to coach
             coach = await conn.fetchrow("SELECT * FROM coaches WHERE id = $1", coach_id)
-            whatsapp_client = WhatsAppClient(coach['whatsapp_token'], os.getenv("WHATSAPP_PHONE_NUMBER_ID"))
+            whatsapp_client = WhatsAppClient(os.getenv("WHATSAPP_ACCESS_TOKEN"), os.getenv("WHATSAPP_PHONE_NUMBER_ID"))
             
             await whatsapp_client.send_message(
                 coach['whatsapp_phone_number'],
@@ -1107,7 +1107,7 @@ class MessageScheduler:
                 for message in due_messages:
                     # Send message
                     whatsapp_client = WhatsAppClient(
-                        message['whatsapp_token'],
+                        os.getenv("WHATSAPP_ACCESS_TOKEN"),
                         os.getenv("WHATSAPP_PHONE_NUMBER_ID")
                     )
                     

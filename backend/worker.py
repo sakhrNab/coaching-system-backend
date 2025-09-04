@@ -180,7 +180,7 @@ def send_whatsapp_message(self, scheduled_message_id: str):
                 
                 # Create WhatsApp client
                 whatsapp_client = WhatsAppClient(
-                    message_data['whatsapp_token'],
+                    os.getenv("WHATSAPP_ACCESS_TOKEN"),
                     os.getenv("WHATSAPP_PHONE_NUMBER_ID")
                 )
                 
@@ -304,7 +304,7 @@ def process_voice_message(self, voice_processing_id: str):
                     coach = await conn.fetchrow("SELECT * FROM coaches WHERE id = $1", processing_record['coach_id'])
                     
                     whatsapp_client = WhatsAppClient(
-                        coach['whatsapp_token'],
+                        os.getenv("WHATSAPP_ACCESS_TOKEN"),
                         os.getenv("WHATSAPP_PHONE_NUMBER_ID")
                     )
                     
@@ -493,7 +493,7 @@ def send_bulk_messages(self, coach_id: str, client_ids: list, message_content: s
                     return
                 
                 whatsapp_client = WhatsAppClient(
-                    coach['whatsapp_token'],
+                    os.getenv("WHATSAPP_ACCESS_TOKEN"),
                     os.getenv("WHATSAPP_PHONE_NUMBER_ID")
                 )
                 
@@ -722,7 +722,7 @@ def send_daily_analytics():
 Keep up the great coaching! 💪"""
                             
                             whatsapp_client = WhatsAppClient(
-                                coach['whatsapp_token'],
+                                os.getenv("WHATSAPP_ACCESS_TOKEN"),
                                 os.getenv("WHATSAPP_PHONE_NUMBER_ID")
                             )
                             
@@ -880,7 +880,7 @@ def send_weekly_report():
                             report_message += "\n\nKeep inspiring your clients! 🚀"
                             
                             whatsapp_client = WhatsAppClient(
-                                coach['whatsapp_token'],
+                                os.getenv("WHATSAPP_ACCESS_TOKEN"),
                                 os.getenv("WHATSAPP_PHONE_NUMBER_ID")
                             )
                             
@@ -938,7 +938,7 @@ def handle_failed_message(self, scheduled_message_id: str, error_details: str):
                 
                 # Notify coach of failure
                 whatsapp_client = WhatsAppClient(
-                    message['whatsapp_token'],
+                    os.getenv("WHATSAPP_ACCESS_TOKEN"),
                     os.getenv("WHATSAPP_PHONE_NUMBER_ID")
                 )
                 
