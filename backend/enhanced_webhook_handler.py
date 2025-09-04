@@ -27,11 +27,19 @@ async def verify_webhook(
     hub_challenge: str = None
 ):
     """Verify webhook endpoint"""
+    expected_token = os.getenv("WEBHOOK_VERIFY_TOKEN", "test-verify-token")
+    
+    logger.info(f"🔍 Webhook verification attempt:")
+    logger.info(f"   hub_mode: {hub_mode}")
+    logger.info(f"   hub_verify_token: {hub_verify_token}")
+    logger.info(f"   expected_token: {expected_token}")
+    logger.info(f"   tokens_match: {hub_verify_token == expected_token}")
+    
     if hub_mode == "subscribe" and verify_webhook_token(hub_verify_token):
-        logger.info("Webhook verified successfully")
+        logger.info("✅ Webhook verified successfully")
         return int(hub_challenge)
     else:
-        logger.warning(f"Webhook verification failed: mode={hub_mode}, token={hub_verify_token}")
+        logger.warning(f"❌ Webhook verification failed: mode={hub_mode}, token={hub_verify_token}")
         raise HTTPException(status_code=403, detail="Forbidden")
 
 @router.post("/whatsapp")
