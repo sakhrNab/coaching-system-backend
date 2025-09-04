@@ -6,6 +6,7 @@ Handles conversation tracking and 24-hour window management
 import os
 import json
 import logging
+import asyncio
 from datetime import datetime, timezone, timedelta
 from typing import Dict, Any, Optional
 from fastapi import APIRouter, Request, HTTPException
@@ -114,10 +115,19 @@ async def process_message_webhook(value: Dict[str, Any]):
             try:
                 logger.info(f"🔍 Attempting to create conversation window for {wa_id}")
                 
-                # Check if database pool is available
+                # Wait for database pool to be available
+                max_retries = 10
+                retry_count = 0
+                while not db.pool and retry_count < max_retries:
+                    logger.info(f"🔍 Waiting for database pool... (attempt {retry_count + 1}/{max_retries})")
+                    await asyncio.sleep(1)
+                    retry_count += 1
+                
                 if not db.pool:
-                    logger.error("❌ Database pool not available")
+                    logger.error("❌ Database pool not available after waiting")
                     return
+                
+                logger.info(f"🔍 Database pool is available, proceeding with conversation creation")
                 
                 async with db.pool.acquire() as conn:
                     logger.info(f"🔍 Database connection acquired for {wa_id}")
