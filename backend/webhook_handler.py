@@ -349,7 +349,7 @@ async def execute_parsed_command(coach_id: str, from_number: str, command_data: 
             if action == 'get_stats':
                 # Send Google Sheet with stats
                 await send_google_sheet_to_coach(coach_id)
-                await whatsapp_client.send_message(
+                await whatsapp_client.send_text_message(
                     from_number,
                     "📊 I've updated your Google Sheet with the latest client stats and sent it to you!"
                 )
@@ -373,7 +373,7 @@ async def execute_parsed_command(coach_id: str, from_number: str, command_data: 
                             clients_to_message.append(client)
                 
                 if not clients_to_message:
-                    await whatsapp_client.send_message(
+                    await whatsapp_client.send_text_message(
                         from_number,
                         "I couldn't find any matching clients. Please check the names and try again."
                     )
@@ -404,14 +404,14 @@ async def execute_parsed_command(coach_id: str, from_number: str, command_data: 
                     send_scheduled_message_task.delay(message_id)
                 
                 client_names = [client['name'] for client in clients_to_message]
-                await whatsapp_client.send_message(
+                await whatsapp_client.send_text_message(
                     from_number,
                     f"✅ {action.replace('send_', '').title()} messages sent to: {', '.join(client_names)}"
                 )
             
             else:
                 # Unknown command
-                await whatsapp_client.send_message(
+                await whatsapp_client.send_text_message(
                     from_number,
                     """I didn't understand that command. Here are some examples:
                     

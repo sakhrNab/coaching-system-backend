@@ -185,7 +185,7 @@ def send_whatsapp_message(self, scheduled_message_id: str):
                 )
                 
                 # Send message
-                result = await whatsapp_client.send_message(
+                result = await whatsapp_client.send_text_message(
                     message_data['phone_number'],
                     message_data['content']
                 )
@@ -503,7 +503,7 @@ def send_bulk_messages(self, coach_id: str, client_ids: list, message_content: s
                 for client in clients:
                     try:
                         # Send message
-                        result = await whatsapp_client.send_message(
+                        result = await whatsapp_client.send_text_message(
                             client['phone_number'],
                             message_content
                         )
@@ -542,7 +542,7 @@ def send_bulk_messages(self, coach_id: str, client_ids: list, message_content: s
 Total clients processed: {len(clients)}"""
                 
                 try:
-                    await whatsapp_client.send_message(
+                    await whatsapp_client.send_text_message(
                         coach['whatsapp_phone_number'],
                         summary_msg
                     )
@@ -726,7 +726,7 @@ Keep up the great coaching! 💪"""
                                 os.getenv("WHATSAPP_PHONE_NUMBER_ID")
                             )
                             
-                            await whatsapp_client.send_message(
+                            await whatsapp_client.send_text_message(
                                 coach['whatsapp_phone_number'],
                                 analytics_message
                             )
@@ -884,7 +884,7 @@ def send_weekly_report():
                                 os.getenv("WHATSAPP_PHONE_NUMBER_ID")
                             )
                             
-                            await whatsapp_client.send_message(
+                            await whatsapp_client.send_text_message(
                                 coach['whatsapp_phone_number'],
                                 report_message
                             )
@@ -952,7 +952,7 @@ Error: {error_details}
 
 The message has been marked as failed. You can retry manually if needed."""
                 
-                await whatsapp_client.send_message(
+                await whatsapp_client.send_text_message(
                     message['whatsapp_phone_number'],
                     failure_notification
                 )

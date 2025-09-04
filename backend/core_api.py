@@ -553,7 +553,7 @@ async def send_immediate_message(scheduled_message_id: str):
                 os.getenv("WHATSAPP_PHONE_NUMBER_ID")
             )
             
-            result = await whatsapp_client.send_message(
+            result = await whatsapp_client.send_text_message(
                 message_data['phone_number'],
                 message_data['content']
             )
@@ -789,7 +789,7 @@ async def send_google_sheet_to_coach(coach_id: str):
             coach = await conn.fetchrow("SELECT * FROM coaches WHERE id = $1", coach_id)
             whatsapp_client = WhatsAppClient(os.getenv("WHATSAPP_ACCESS_TOKEN"), os.getenv("WHATSAPP_PHONE_NUMBER_ID"))
             
-            await whatsapp_client.send_message(
+            await whatsapp_client.send_text_message(
                 coach['whatsapp_phone_number'],
                 f"📊 Here's your updated client stats:\n{sheet_url}"
             )
@@ -1111,7 +1111,7 @@ class MessageScheduler:
                         os.getenv("WHATSAPP_PHONE_NUMBER_ID")
                     )
                     
-                    result = await whatsapp_client.send_message(
+                    result = await whatsapp_client.send_text_message(
                         message['phone_number'],
                         message['content']
                     )
