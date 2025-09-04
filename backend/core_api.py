@@ -453,7 +453,7 @@ async def add_client(coach_id: str, client: Client):
         # Add categories if provided
         if client.categories:
             for category_name in client.categories:
-                # Check if category exists (predefined or custom for this coach)
+                    # Check if category exists (predefined or custom for this coach)
                 category = await db.fetchrow(
                     "SELECT id FROM categories WHERE name = $1 AND (is_predefined = true OR coach_id = $2)",
                     category_name, coach_id
@@ -550,7 +550,7 @@ async def send_immediate_message(scheduled_message_id: str):
             # Send via WhatsApp
             whatsapp_client = WhatsAppClient(
                 message_data['whatsapp_token'],
-                message_data['whatsapp_phone_number']
+                os.getenv("WHATSAPP_PHONE_NUMBER_ID")
             )
             
             result = await whatsapp_client.send_message(
@@ -606,7 +606,7 @@ async def process_voice_message(voice_data: VoiceMessageProcessing):
             
             # Send confirmation message with buttons
             coach_data = await conn.fetchrow("SELECT * FROM coaches WHERE id = $1", voice_data.coach_id)
-            whatsapp_client = WhatsAppClient(coach_data['whatsapp_token'], coach_data['whatsapp_phone_number'])
+            whatsapp_client = WhatsAppClient(coach_data['whatsapp_token'], os.getenv("WHATSAPP_PHONE_NUMBER_ID"))
             
             confirmation_message = f"Corrected message:\n\n{corrected_text}\n\nPlease confirm or edit:"
             buttons = [
@@ -787,7 +787,7 @@ async def send_google_sheet_to_coach(coach_id: str):
             
             # Send to coach
             coach = await conn.fetchrow("SELECT * FROM coaches WHERE id = $1", coach_id)
-            whatsapp_client = WhatsAppClient(coach['whatsapp_token'], coach['whatsapp_phone_number'])
+            whatsapp_client = WhatsAppClient(coach['whatsapp_token'], os.getenv("WHATSAPP_PHONE_NUMBER_ID"))
             
             await whatsapp_client.send_message(
                 coach['whatsapp_phone_number'],
@@ -1108,7 +1108,7 @@ class MessageScheduler:
                     # Send message
                     whatsapp_client = WhatsAppClient(
                         message['whatsapp_token'],
-                        message['whatsapp_phone_number']
+                        os.getenv("WHATSAPP_PHONE_NUMBER_ID")
                     )
                     
                     result = await whatsapp_client.send_message(

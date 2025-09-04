@@ -181,7 +181,7 @@ def send_whatsapp_message(self, scheduled_message_id: str):
                 # Create WhatsApp client
                 whatsapp_client = WhatsAppClient(
                     message_data['whatsapp_token'],
-                    message_data['whatsapp_phone_number']
+                    os.getenv("WHATSAPP_PHONE_NUMBER_ID")
                 )
                 
                 # Send message
@@ -305,7 +305,7 @@ def process_voice_message(self, voice_processing_id: str):
                     
                     whatsapp_client = WhatsAppClient(
                         coach['whatsapp_token'],
-                        coach['whatsapp_phone_number']
+                        os.getenv("WHATSAPP_PHONE_NUMBER_ID")
                     )
                     
                     confirmation_message = f"""🎤 **Voice Message Processed**
@@ -494,7 +494,7 @@ def send_bulk_messages(self, coach_id: str, client_ids: list, message_content: s
                 
                 whatsapp_client = WhatsAppClient(
                     coach['whatsapp_token'],
-                    coach['whatsapp_phone_number']
+                    os.getenv("WHATSAPP_PHONE_NUMBER_ID")
                 )
                 
                 success_count = 0
@@ -723,7 +723,7 @@ Keep up the great coaching! 💪"""
                             
                             whatsapp_client = WhatsAppClient(
                                 coach['whatsapp_token'],
-                                coach['whatsapp_phone_number']
+                                os.getenv("WHATSAPP_PHONE_NUMBER_ID")
                             )
                             
                             await whatsapp_client.send_message(
@@ -881,7 +881,7 @@ def send_weekly_report():
                             
                             whatsapp_client = WhatsAppClient(
                                 coach['whatsapp_token'],
-                                coach['whatsapp_phone_number']
+                                os.getenv("WHATSAPP_PHONE_NUMBER_ID")
                             )
                             
                             await whatsapp_client.send_message(
@@ -939,7 +939,7 @@ def handle_failed_message(self, scheduled_message_id: str, error_details: str):
                 # Notify coach of failure
                 whatsapp_client = WhatsAppClient(
                     message['whatsapp_token'],
-                    message['whatsapp_phone_number']
+                    os.getenv("WHATSAPP_PHONE_NUMBER_ID")
                 )
                 
                 failure_notification = f"""❌ **Message Delivery Failed**

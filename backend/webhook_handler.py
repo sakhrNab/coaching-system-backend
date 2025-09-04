@@ -8,6 +8,7 @@ from fastapi.responses import PlainTextResponse
 import hmac
 import hashlib
 import json
+import os
 import logging
 
 logger = logging.getLogger(__name__)
@@ -341,7 +342,7 @@ async def execute_parsed_command(coach_id: str, from_number: str, command_data: 
     try:
         async with db.pool.acquire() as conn:
             coach = await conn.fetchrow("SELECT * FROM coaches WHERE id = $1", coach_id)
-            whatsapp_client = WhatsAppClient(coach['whatsapp_token'], coach['whatsapp_phone_number'])
+            whatsapp_client = WhatsAppClient(coach['whatsapp_token'], os.getenv("WHATSAPP_PHONE_NUMBER_ID"))
             
             action = command_data.get('action')
             
@@ -456,7 +457,7 @@ async def process_voice_message_complete(processing_id: str, audio_url: str):
             
             # Get coach info
             coach = await conn.fetchrow("SELECT * FROM coaches WHERE id = $1", processing_record['coach_id'])
-            whatsapp_client = WhatsAppClient(coach['whatsapp_token'], coach['whatsapp_phone_number'])
+            whatsapp_client = WhatsAppClient(coach['whatsapp_token'], os.getenv("WHATSAPP_PHONE_NUMBER_ID"))
             
             # Send confirmation message with buttons
             confirmation_message = f"""🎤 Voice message processed:
