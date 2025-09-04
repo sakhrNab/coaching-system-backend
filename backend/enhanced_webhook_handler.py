@@ -1,0 +1,191 @@
+"""
+Enhanced WhatsApp Webhook Handler
+Handles conversation tracking and 24-hour window management
+"""
+
+import os
+import json
+import logging
+from datetime import datetime, timezone
+from typing import Dict, Any, Optional
+from fastapi import APIRouter, Request, HTTPException, Depends
+from .database import db
+from .core_api import WhatsAppClient
+
+logger = logging.getLogger(__name__)
+
+router = APIRouter()
+
+def verify_webhook_token(token: str) -> bool:
+    """Verify webhook token"""
+    expected_token = os.getenv("WEBHOOK_VERIFY_TOKEN", "test-verify-token")
+    return token == expected_token
+
+@router.get("/whatsapp")
+async def verify_webhook(
+    hub_mode: str = None,
+    hub_verify_token: str = None,
+    hub_challenge: str = None
+):
+    """Verify webhook endpoint"""
+    if hub_mode == "subscribe" and verify_webhook_token(hub_verify_token):
+        logger.info("Webhook verified successfully")
+        return int(hub_challenge)
+    else:
+        logger.warning(f"Webhook verification failed: mode={hub_mode}, token={hub_verify_token}")
+        raise HTTPException(status_code=403, detail="Forbidden")
+
+@router.post("/whatsapp")
+async def handle_webhook(request: Request):
+    """Handle incoming WhatsApp webhooks"""
+    try:
+        body = await request.json()
+        logger.info(f"📥 Received webhook: {json.dumps(body, indent=2)}")
+        
+        # Process webhook data
+        await process_webhook_data(body)
+        
+        return {"status": "success"}
+    
+    except Exception as e:
+        logger.error(f"Webhook processing error: {e}")
+        raise HTTPException(status_code=500, detail="Internal server error")
+
+async def process_webhook_data(data: Dict[str, Any]):
+    """Process webhook data and track conversations"""
+    try:
+        if data.get("object") != "whatsapp_business_account":
+            return
+        
+        for entry in data.get("entry", []):
+            for change in entry.get("changes", []):
+                if change.get("field") == "messages":
+                    await process_message_webhook(change.get("value", {}))
+                elif change.get("field") == "messages.status":
+                    await process_status_webhook(change.get("value", {}))
+                elif change.get("field") == "conversations":
+                    await process_conversation_webhook(change.get("value", {}))
+    
+    except Exception as e:
+        logger.error(f"Error processing webhook data: {e}")
+
+async def process_message_webhook(value: Dict[str, Any]):
+    """Process incoming message webhook"""
+    try:
+        # Extract message data
+        messages = value.get("messages", [])
+        contacts = value.get("contacts", [])
+        
+        for message in messages:
+            wa_id = message.get("from")
+            message_id = message.get("id")
+            timestamp = message.get("timestamp")
+            
+            # Find contact info
+            contact_info = next((c for c in contacts if c.get("wa_id") == wa_id), {})
+            user_name = contact_info.get("profile", {}).get("name", "Unknown")
+            
+            logger.info(f"📨 Received message from {wa_id} ({user_name}): {message_id}")
+            
+            # Record this as a user-initiated conversation
+            # Note: We don't have conversation details in message webhooks
+            # We'll rely on status webhooks for conversation tracking
+            
+    except Exception as e:
+        logger.error(f"Error processing message webhook: {e}")
+
+async def process_status_webhook(value: Dict[str, Any]):
+    """Process message status webhook"""
+    try:
+        statuses = value.get("statuses", [])
+        
+        for status in statuses:
+            message_id = status.get("id")
+            recipient_id = status.get("recipient_id")
+            status_type = status.get("status")
+            conversation = status.get("conversation", {})
+            
+            logger.info(f"📊 Message status: {message_id} -> {status_type} for {recipient_id}")
+            
+            # Track conversation if present
+            if conversation:
+                conversation_id = conversation.get("id")
+                origin_type = conversation.get("origin", {}).get("type")
+                expiration_timestamp = conversation.get("expiration_timestamp")
+                
+                if conversation_id and origin_type and expiration_timestamp:
+                    # Convert timestamp to datetime
+                    expires_at = datetime.fromtimestamp(
+                        int(expiration_timestamp), 
+                        tz=timezone.utc
+                    )
+                    
+                    # Record conversation
+                    whatsapp_client = WhatsAppClient(
+                        os.getenv("WHATSAPP_ACCESS_TOKEN"),
+                        os.getenv("WHATSAPP_PHONE_NUMBER_ID")
+                    )
+                    
+                    await whatsapp_client.record_conversation(
+                        recipient_id,
+                        conversation_id,
+                        origin_type,
+                        expires_at
+                    )
+                    
+                    logger.info(f"💬 Recorded conversation: {conversation_id} for {recipient_id} until {expires_at}")
+    
+    except Exception as e:
+        logger.error(f"Error processing status webhook: {e}")
+
+async def process_conversation_webhook(value: Dict[str, Any]):
+    """Process conversation webhook"""
+    try:
+        conversations = value.get("conversations", [])
+        
+        for conversation in conversations:
+            conversation_id = conversation.get("id")
+            origin_type = conversation.get("origin", {}).get("type")
+            expiration_timestamp = conversation.get("expiration_timestamp")
+            
+            logger.info(f"💬 Conversation webhook: {conversation_id} - {origin_type}")
+            
+            # This webhook provides conversation updates
+            # We can use this to track conversation state changes
+    
+    except Exception as e:
+        logger.error(f"Error processing conversation webhook: {e}")
+
+# Utility functions for conversation management
+async def get_conversation_status(wa_id: str) -> Dict[str, Any]:
+    """Get current conversation status for a user"""
+    try:
+        whatsapp_client = WhatsAppClient(
+            os.getenv("WHATSAPP_ACCESS_TOKEN"),
+            os.getenv("WHATSAPP_PHONE_NUMBER_ID")
+        )
+        
+        conversation = await whatsapp_client.get_active_conversation(wa_id)
+        can_send_free = await whatsapp_client.can_send_free_message(wa_id)
+        
+        return {
+            "wa_id": wa_id,
+            "has_active_conversation": conversation is not None,
+            "can_send_free_message": can_send_free,
+            "conversation": conversation
+        }
+    
+    except Exception as e:
+        logger.error(f"Error getting conversation status: {e}")
+        return {
+            "wa_id": wa_id,
+            "has_active_conversation": False,
+            "can_send_free_message": False,
+            "conversation": None
+        }
+
+@router.get("/conversation-status/{wa_id}")
+async def get_conversation_status_endpoint(wa_id: str):
+    """Get conversation status for a WhatsApp ID"""
+    status = await get_conversation_status(wa_id)
+    return status

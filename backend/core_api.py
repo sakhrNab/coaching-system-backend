@@ -129,6 +129,56 @@ class WhatsAppClient:
             
             return response.json()
     
+    async def send_template_with_parameters(self, to: str, template_name: str, parameters: List[str]) -> Dict[str, Any]:
+        """Send a template message with parameters"""
+        url = f"{self.base_url}/{self.phone_number_id}/messages"
+        headers = {
+            "Authorization": f"Bearer {self.access_token}",
+            "Content-Type": "application/json"
+        }
+        
+        # Clean phone number - remove + and any non-digits
+        clean_phone = ''.join(filter(str.isdigit, to))
+        
+        # Build template with parameters
+        template_data = {
+            "name": template_name,
+            "language": {"code": "en_US"}
+        }
+        
+        # Add parameters if provided
+        if parameters:
+            template_data["components"] = [{
+                "type": "body",
+                "parameters": [{"type": "text", "text": param} for param in parameters]
+            }]
+        
+        payload = {
+            "messaging_product": "whatsapp",
+            "to": clean_phone,
+            "type": "template",
+            "template": template_data
+        }
+        
+        # Log the request details
+        logger.info(f"🚀 WhatsApp Template with Parameters API Request:")
+        logger.info(f"   URL: {url}")
+        logger.info(f"   Headers: {headers}")
+        logger.info(f"   Payload: {payload}")
+        logger.info(f"   Template name: {template_name}")
+        logger.info(f"   Parameters: {parameters}")
+        
+        async with httpx.AsyncClient() as client:
+            response = await client.post(url, headers=headers, json=payload)
+            
+            # Log the response details
+            logger.info(f"📥 WhatsApp Template with Parameters API Response:")
+            logger.info(f"   Status Code: {response.status_code}")
+            logger.info(f"   Response Headers: {dict(response.headers)}")
+            logger.info(f"   Response Body: {response.text}")
+            
+            return response.json()
+    
     async def send_text_message(self, to: str, message: str) -> Dict[str, Any]:
         """Send a text message via WhatsApp Business API (fallback method)"""
         print(f"🔥 SEND_TEXT_MESSAGE CALLED - to: {to}, message: {message}")
@@ -168,6 +218,51 @@ class WhatsAppClient:
             logger.info(f"   Response Body: {response.text}")
             
             return response.json()
+    
+    async def can_send_free_message(self, wa_id: str) -> bool:
+        """Check if we can send a free message to this user (within 24h window)"""
+        try:
+            async with db.pool.acquire() as conn:
+                result = await conn.fetchval(
+                    "SELECT can_send_free_message($1)", wa_id
+                )
+                return result or False
+        except Exception as e:
+            logger.error(f"Error checking free message eligibility: {e}")
+            return False
+    
+    async def get_active_conversation(self, wa_id: str) -> Optional[Dict[str, Any]]:
+        """Get active conversation for a user"""
+        try:
+            async with db.pool.acquire() as conn:
+                result = await conn.fetchrow(
+                    "SELECT * FROM get_active_conversation($1)", wa_id
+                )
+                return dict(result) if result else None
+        except Exception as e:
+            logger.error(f"Error getting active conversation: {e}")
+            return None
+    
+    async def record_conversation(self, wa_id: str, conversation_id: str, origin_type: str, expires_at: str) -> None:
+        """Record a new conversation"""
+        try:
+            async with db.pool.acquire() as conn:
+                # Deactivate existing conversations for this user
+                await conn.execute(
+                    "UPDATE whatsapp_conversations SET is_active = false WHERE wa_id = $1",
+                    wa_id
+                )
+                
+                # Insert new conversation
+                await conn.execute(
+                    """INSERT INTO whatsapp_conversations 
+                       (wa_id, conversation_id, origin_type, initiated_at, expires_at)
+                       VALUES ($1, $2, $3, NOW(), $4)""",
+                    wa_id, conversation_id, origin_type, expires_at
+                )
+                logger.info(f"Recorded conversation for {wa_id}: {conversation_id}")
+        except Exception as e:
+            logger.error(f"Error recording conversation: {e}")
     
     async def send_interactive_message(self, to: str, message: str, buttons: List[Dict[str, str]]) -> Dict[str, Any]:
         """Send message with interactive buttons (Confirm/Edit)"""
@@ -590,10 +685,49 @@ async def send_immediate_message(scheduled_message_id: str):
                 os.getenv("WHATSAPP_PHONE_NUMBER_ID")
             )
             
-            result = await whatsapp_client.send_text_message(
-                message_data['phone_number'],
-                message_data['content']
-            )
+            # Clean phone number for conversation tracking
+            clean_phone = ''.join(filter(str.isdigit, message_data['phone_number']))
+            
+            # Import template manager
+            from .whatsapp_templates import template_manager
+            
+            # Check if this is a template message (celebration/accountability from DB)
+            if template_manager.is_template_message(message_data['content']):
+                # This is an initiation message - send as template
+                template_name = template_manager.get_template_name(message_data['content'])
+                logger.info(f"📤 Sending template message: {template_name}")
+                
+                # Get client name for template parameter
+                client_name = await conn.fetchval(
+                    "SELECT name FROM clients WHERE id = $1", 
+                    message_data['client_id']
+                )
+                
+                result = await whatsapp_client.send_template_with_parameters(
+                    message_data['phone_number'],
+                    template_name,
+                    [client_name or "Friend"]  # Use client name as parameter
+                )
+                
+            else:
+                # Check if we can send free message (within 24h window)
+                can_send_free = await whatsapp_client.can_send_free_message(clean_phone)
+                
+                if can_send_free:
+                    # Send as free text message
+                    logger.info(f"📤 Sending free text message to {clean_phone}")
+                    result = await whatsapp_client.send_text_message(
+                        message_data['phone_number'],
+                        message_data['content']
+                    )
+                else:
+                    # Outside 24h window - send as template (this will be charged)
+                    logger.warning(f"⚠️ Outside 24h window for {clean_phone}, sending as template")
+                    result = await whatsapp_client.send_message(
+                        message_data['phone_number'],
+                        message_data['content'],
+                        "hello_world"  # Fallback template
+                    )
             
             # Update status and create history record
             await conn.execute(
