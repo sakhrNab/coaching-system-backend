@@ -550,6 +550,7 @@ async def send_messages(message_request: MessageRequest, background_tasks: Backg
                 
                 # If sending now, add to background task
                 if message_request.schedule_type == 'now':
+                    logger.info(f"📤 Adding background task for immediate message: {scheduled_id}")
                     background_tasks.add_task(send_immediate_message, str(scheduled_id))
         
         if not message_ids:
@@ -563,6 +564,7 @@ async def send_messages(message_request: MessageRequest, background_tasks: Backg
 
 async def send_immediate_message(scheduled_message_id: str):
     """Background task to send immediate message"""
+    logger.info(f"🚀 Starting background task for message ID: {scheduled_message_id}")
     try:
         async with db.pool.acquire() as conn:
             # Get message details
