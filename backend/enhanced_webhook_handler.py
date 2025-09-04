@@ -6,7 +6,7 @@ Handles conversation tracking and 24-hour window management
 import os
 import json
 import logging
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 from typing import Dict, Any, Optional
 from fastapi import APIRouter, Request, HTTPException
 from .database import db
@@ -110,9 +110,28 @@ async def process_message_webhook(value: Dict[str, Any]):
             
             logger.info(f"📨 Received message from {wa_id} ({user_name}): {message_id}")
             
-            # Record this as a user-initiated conversation
-            # Note: We don't have conversation details in message webhooks
-            # We'll rely on status webhooks for conversation tracking
+            # Create user-initiated conversation window (24 hours from now)
+            try:
+                async with db.pool.acquire() as conn:
+                    # Deactivate existing conversations for this user
+                    await conn.execute(
+                        "UPDATE whatsapp_conversations SET is_active = false WHERE wa_id = $1",
+                        wa_id
+                    )
+                    
+                    # Insert new user-initiated conversation (24 hours from now)
+                    expires_at = datetime.now(timezone.utc) + timedelta(hours=24)
+                    await conn.execute(
+                        """INSERT INTO whatsapp_conversations 
+                           (wa_id, conversation_id, origin_type, initiated_at, expires_at)
+                           VALUES ($1, $2, $3, NOW(), $4)""",
+                        wa_id, f"user_msg_{message_id}", "user_initiated", expires_at
+                    )
+                    
+                    logger.info(f"✅ Created 24h conversation window for {wa_id} until {expires_at}")
+                    
+            except Exception as db_error:
+                logger.error(f"Database error creating conversation: {db_error}")
             
     except Exception as e:
         logger.error(f"Error processing message webhook: {e}")
