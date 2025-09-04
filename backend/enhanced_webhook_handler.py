@@ -8,9 +8,8 @@ import json
 import logging
 from datetime import datetime, timezone
 from typing import Dict, Any, Optional
-from fastapi import APIRouter, Request, HTTPException, Depends
+from fastapi import APIRouter, Request, HTTPException
 from .database import db
-from .core_api import WhatsAppClient
 
 logger = logging.getLogger(__name__)
 
@@ -120,20 +119,26 @@ async def process_status_webhook(value: Dict[str, Any]):
                         tz=timezone.utc
                     )
                     
-                    # Record conversation
-                    whatsapp_client = WhatsAppClient(
-                        os.getenv("WHATSAPP_ACCESS_TOKEN"),
-                        os.getenv("WHATSAPP_PHONE_NUMBER_ID")
-                    )
-                    
-                    await whatsapp_client.record_conversation(
-                        recipient_id,
-                        conversation_id,
-                        origin_type,
-                        expires_at
-                    )
-                    
-                    logger.info(f"💬 Recorded conversation: {conversation_id} for {recipient_id} until {expires_at}")
+                    # Record conversation directly
+                    try:
+                        async with db.pool.acquire() as conn:
+                            # Deactivate existing conversations for this user
+                            await conn.execute(
+                                "UPDATE whatsapp_conversations SET is_active = false WHERE wa_id = $1",
+                                recipient_id
+                            )
+                            
+                            # Insert new conversation
+                            await conn.execute(
+                                """INSERT INTO whatsapp_conversations 
+                                   (wa_id, conversation_id, origin_type, initiated_at, expires_at)
+                                   VALUES ($1, $2, $3, NOW(), $4)""",
+                                recipient_id, conversation_id, origin_type, expires_at
+                            )
+                            
+                            logger.info(f"💬 Recorded conversation: {conversation_id} for {recipient_id} until {expires_at}")
+                    except Exception as e:
+                        logger.error(f"Error recording conversation: {e}")
     
     except Exception as e:
         logger.error(f"Error processing status webhook: {e}")
@@ -160,20 +165,23 @@ async def process_conversation_webhook(value: Dict[str, Any]):
 async def get_conversation_status(wa_id: str) -> Dict[str, Any]:
     """Get current conversation status for a user"""
     try:
-        whatsapp_client = WhatsAppClient(
-            os.getenv("WHATSAPP_ACCESS_TOKEN"),
-            os.getenv("WHATSAPP_PHONE_NUMBER_ID")
-        )
-        
-        conversation = await whatsapp_client.get_active_conversation(wa_id)
-        can_send_free = await whatsapp_client.can_send_free_message(wa_id)
-        
-        return {
-            "wa_id": wa_id,
-            "has_active_conversation": conversation is not None,
-            "can_send_free_message": can_send_free,
-            "conversation": conversation
-        }
+        async with db.pool.acquire() as conn:
+            # Check if user has active conversation
+            conversation = await conn.fetchrow(
+                "SELECT * FROM get_active_conversation($1)", wa_id
+            )
+            
+            # Check if can send free message
+            can_send_free = await conn.fetchval(
+                "SELECT can_send_free_message($1)", wa_id
+            )
+            
+            return {
+                "wa_id": wa_id,
+                "has_active_conversation": conversation is not None,
+                "can_send_free_message": can_send_free or False,
+                "conversation": dict(conversation) if conversation else None
+            }
     
     except Exception as e:
         logger.error(f"Error getting conversation status: {e}")
@@ -189,3 +197,4 @@ async def get_conversation_status_endpoint(wa_id: str):
     """Get conversation status for a WhatsApp ID"""
     status = await get_conversation_status(wa_id)
     return status
+

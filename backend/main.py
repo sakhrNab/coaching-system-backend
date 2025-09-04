@@ -15,8 +15,7 @@ load_dotenv()
 # Import all our API modules
 from .core_api import router as core_router
 from .admin_api import router as admin_router
-from .webhook_handler import router as webhook_router
-from .enhanced_webhook_handler import router as enhanced_webhook_router
+from .enhanced_webhook_handler import router as webhook_router
 from .additional_backend_endpoints import router as additional_router
 from .database import db
 
@@ -59,7 +58,6 @@ app.add_middleware(
 app.include_router(core_router, prefix="", tags=["core"])
 app.include_router(admin_router, prefix="/admin", tags=["admin"])
 app.include_router(webhook_router, prefix="/webhook", tags=["webhooks"])
-app.include_router(enhanced_webhook_router, prefix="/webhook", tags=["enhanced-webhooks"])
 app.include_router(additional_router, tags=["additional"])
 
 # Startup and shutdown events
