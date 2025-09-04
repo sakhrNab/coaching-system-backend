@@ -30,21 +30,27 @@ CREATE TABLE IF NOT EXISTS categories (
 );
 
 -- Insert predefined categories if they don't exist
+-- Use a more robust approach to prevent duplicates
 INSERT INTO categories (name, is_predefined)
-VALUES
-    ('Weight', true),
-    ('Diet', true),
-    ('Business', true),
-    ('Finance', true),
-    ('Relationship', true),
-    ('Health', true),
-    ('Growth', true),
-    ('Socialization', true),
-    ('Communication', true),
-    ('Writing', true),
-    ('Creativity', true),
-    ('Career', true)
-ON CONFLICT (name, coach_id) WHERE coach_id IS NULL DO NOTHING;
+SELECT name, true FROM (VALUES
+    ('Weight'),
+    ('Diet'),
+    ('Business'),
+    ('Finance'),
+    ('Relationship'),
+    ('Health'),
+    ('Growth'),
+    ('Socialization'),
+    ('Communication'),
+    ('Writing'),
+    ('Creativity'),
+    ('Career')
+) AS predefined_categories(name)
+WHERE NOT EXISTS (
+    SELECT 1 FROM categories 
+    WHERE categories.name = predefined_categories.name 
+    AND is_predefined = true
+);
 
 -- Create clients table if it doesn't exist
 CREATE TABLE IF NOT EXISTS clients (
@@ -93,14 +99,28 @@ CREATE TABLE IF NOT EXISTS message_templates (
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 
--- Insert default celebration messages if they don't exist
-INSERT INTO message_templates (message_type, content, is_default) VALUES
-    ('celebration', '🎉 What are we celebrating today?', true),
-    ('celebration', '✨ What are you grateful for?', true),
-    ('celebration', '🌟 What victory are you proud of today?', true),
-    ('celebration', '🎊 What positive moment made your day?', true),
-    ('celebration', '💫 What breakthrough did you experience?', true)
-ON CONFLICT DO NOTHING;
+-- Insert default message templates if they don't exist
+-- Use a more robust approach to prevent duplicates
+INSERT INTO message_templates (message_type, content, is_default)
+SELECT message_type, content, true FROM (VALUES
+    ('celebration', '🎉 What are we celebrating today?'),
+    ('celebration', '✨ What are you grateful for?'),
+    ('celebration', '🌟 What victory are you proud of today?'),
+    ('celebration', '🎊 What positive moment made your day?'),
+    ('celebration', '💫 What breakthrough did you experience?'),
+    ('accountability', '📝 How did you progress on your goals today?'),
+    ('accountability', '🎯 What action did you take towards your target?'),
+    ('accountability', '💪 What challenge did you overcome today?'),
+    ('accountability', '📈 How are you measuring your progress?'),
+    ('accountability', '🔥 What will you commit to tomorrow?')
+) AS predefined_templates(message_type, content)
+WHERE NOT EXISTS (
+    SELECT 1 FROM message_templates 
+    WHERE message_templates.message_type = predefined_templates.message_type 
+    AND message_templates.content = predefined_templates.content
+    AND is_default = true
+    AND coach_id IS NULL
+);
 
 -- Create scheduled messages table
 CREATE TABLE IF NOT EXISTS scheduled_messages (
