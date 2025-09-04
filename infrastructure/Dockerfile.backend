@@ -14,11 +14,15 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 # Copy application code
 COPY backend/ ./backend/
+COPY database/ ./database/
+COPY Scripts/ ./Scripts/
+COPY migration_manager.py .
+COPY startup.sh .
 COPY manual_db_fix.sh .
 COPY requirements.txt .
 
-# Create logs directory
-RUN mkdir -p logs
+# Create logs directory and make startup script executable
+RUN mkdir -p logs && chmod +x startup.sh
 
 # Expose port
 EXPOSE 8000
@@ -27,5 +31,5 @@ EXPOSE 8000
 HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
     CMD curl -f http://localhost:8000/health || exit 1
 
-# Run the application
-CMD ["uvicorn", "backend.main:app", "--host", "0.0.0.0", "--port", "8000", "--workers", "1"]
+# Run the application with migration support
+CMD ["./startup.sh"]

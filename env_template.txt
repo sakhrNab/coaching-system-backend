@@ -1,0 +1,76 @@
+# =============================================================================
+# COACHING SYSTEM BACKEND - ENVIRONMENT VARIABLES
+# =============================================================================
+# Copy this content to .env file and fill in your actual values
+
+# =============================================================================
+# DATABASE CONFIGURATION
+# =============================================================================
+DB_HOST=postgres
+DB_PORT=5432
+DB_USER=postgres
+DB_PASSWORD=your_secure_postgres_password_here
+DB_NAME=coaching_system
+
+# =============================================================================
+# POSTGRESQL CONFIGURATION (for docker-compose)
+# =============================================================================
+POSTGRES_DB=coaching_system
+POSTGRES_USER=postgres
+POSTGRES_PASSWORD=your_secure_postgres_password_here
+POSTGRES_HOST_AUTH_METHOD=trust
+
+# =============================================================================
+# OPENAI CONFIGURATION
+# =============================================================================
+# Get from: https://platform.openai.com/api-keys
+OPENAI_API_KEY=sk-proj-your_openai_api_key_here
+
+# =============================================================================
+# WHATSAPP BUSINESS API CONFIGURATION
+# =============================================================================
+# Get from: https://developers.facebook.com/apps/
+META_APP_ID=your_meta_app_id_here
+META_APP_SECRET=your_meta_app_secret_here
+
+# WhatsApp Business Account Token
+# Get from: Meta Business > WhatsApp > API Setup
+WHATSAPP_ACCESS_TOKEN=your_whatsapp_access_token_here
+
+# WhatsApp Phone Number ID (not the actual phone number)
+# Get from: Meta Business > WhatsApp > API Setup
+WHATSAPP_PHONE_NUMBER_ID=your_whatsapp_phone_number_id_here
+
+# =============================================================================
+# WEBHOOK CONFIGURATION
+# =============================================================================
+# Set a secure random string for webhook verification
+WEBHOOK_VERIFY_TOKEN=your_secure_webhook_verify_token_here
+
+# =============================================================================
+# GOOGLE SHEETS INTEGRATION (Optional)
+# =============================================================================
+# Option 1: Service Account (Recommended for production)
+GOOGLE_SERVICE_ACCOUNT_FILE=/path/to/your/service-account-key.json
+
+# Option 2: OAuth 2.0 (Alternative)
+GOOGLE_CLIENT_ID=your_google_client_id_here
+GOOGLE_CLIENT_SECRET=your_google_client_secret_here
+GOOGLE_REFRESH_TOKEN=your_google_refresh_token_here
+
+# =============================================================================
+# SECURITY
+# =============================================================================
+# Generate a secure random string for JWT tokens
+JWT_SECRET=your_jwt_secret_key_here
+
+# =============================================================================
+# APPLICATION CONFIGURATION
+# =============================================================================
+ENVIRONMENT=production
+LOG_LEVEL=INFO
+
+# =============================================================================
+# REDIS CONFIGURATION (for background tasks)
+# =============================================================================
+REDIS_URL=redis://redis:6379/0
