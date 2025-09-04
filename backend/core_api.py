@@ -131,6 +131,7 @@ class WhatsAppClient:
     
     async def send_text_message(self, to: str, message: str) -> Dict[str, Any]:
         """Send a text message via WhatsApp Business API (fallback method)"""
+        logger.info(f"🔥 SEND_TEXT_MESSAGE CALLED - to: {to}, message: {message}")
         url = f"{self.base_url}/{self.phone_number_id}/messages"
         headers = {
             "Authorization": f"Bearer {self.access_token}",
@@ -155,6 +156,7 @@ class WhatsAppClient:
         logger.info(f"   Original phone: {to}")
         logger.info(f"   Cleaned phone: {clean_phone}")
         
+        logger.info(f"🔥 ABOUT TO SEND HTTP REQUEST TO WHATSAPP API")
         async with httpx.AsyncClient() as client:
             response = await client.post(url, headers=headers, json=payload)
             
