@@ -159,7 +159,14 @@ class VoiceTranscriptionService:
         try:
             async with httpx.AsyncClient() as client:
                 audio_response = await client.get(audio_url)
+                if audio_response.status_code != 200:
+                    logger.warning(f"Failed to download audio from {audio_url}: {audio_response.status_code}")
+                    raise HTTPException(status_code=400, detail=f"Could not download audio file: {audio_response.status_code}")
                 audio_content = audio_response.content
+                
+                # Validate audio content
+                if len(audio_content) == 0:
+                    raise HTTPException(status_code=400, detail="Audio file is empty")
             
             # Create temporary file for OpenAI Whisper
             import tempfile
@@ -177,6 +184,8 @@ class VoiceTranscriptionService:
             os.unlink(temp_file_path)
             
             return transcript.text
+        except HTTPException:
+            raise
         except Exception as e:
             logger.error(f"Transcription error: {e}")
             raise HTTPException(status_code=500, detail="Transcription failed")
@@ -298,7 +307,6 @@ class GoogleSheetsService:
 
 # Initialize services
 transcription_service = VoiceTranscriptionService()
-sheets_service = GoogleSheetsService()
 
 # Lifespan manager
 @asynccontextmanager
@@ -580,6 +588,8 @@ async def process_voice_message(voice_data: VoiceMessageProcessing):
             
             return {"processing_id": str(processing_id), "corrected_text": corrected_text}
     
+    except HTTPException:
+        raise
     except Exception as e:
         logger.error(f"Voice processing error: {e}")
         raise HTTPException(status_code=500, detail="Voice processing failed")
@@ -778,13 +788,13 @@ async def get_categories(coach_id: str):
         raise HTTPException(status_code=500, detail="Failed to fetch categories")
 
 @router.post("/coaches/{coach_id}/categories")
-async def add_custom_category(coach_id: str, category_name: str):
+async def add_custom_category(coach_id: str, category_data: CategoryCreate):
     """Add custom category for coach"""
     try:
         async with db.pool.acquire() as conn:
             category_id = await conn.fetchval(
                 "INSERT INTO categories (name, coach_id, is_predefined) VALUES ($1, $2, false) RETURNING id",
-                category_name, coach_id
+                category_data.name, coach_id
             )
             
             return {"category_id": str(category_id), "status": "created"}

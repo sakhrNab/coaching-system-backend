@@ -14,9 +14,17 @@ from .database import db
 from .core_api import CategoryCreate, TemplateCreate, ImportData, GoogleContactsImport, VoiceProcessRequest
 import uuid
 import httpx
+from datetime import datetime
+from pydantic import BaseModel
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
+
+class GoalCreate(BaseModel):
+    title: str
+    description: str = None
+    category: str = None
+    target_date: str = None
 
 # Add these endpoints to your main FastAPI app
 
@@ -60,29 +68,26 @@ async def import_clients_json(coach_id: str, import_data: ImportData):
                     if len(values) < 2:
                         continue
                     
-                        client_data = {
+                    client_data = {
                         'name': values[headers.index('name')].strip(),
                         'phone_number': values[headers.index('phone_number')].strip(),
                         'country': values[headers.index('country')].strip() if 'country' in headers and len(values) > headers.index('country') else 'USA',
                         'timezone': values[headers.index('timezone')].strip() if 'timezone' in headers and len(values) > headers.index('timezone') else 'EST'
                     }
                     
-                    # Validate phone number
-                        if not client_data['phone_number'].startswith('+'):
-                            client_data['phone_number'] = '+1' + client_data['phone_number'].lstrip('0')
+                    # Normalize phone number
+                    if not client_data['phone_number'].startswith('+'):
+                        client_data['phone_number'] = '+1' + client_data['phone_number'].lstrip('0')
 
-                        # Insert client
+                    # Insert client
                     client_id = str(uuid.uuid4())
-                    
                     await db.execute(
                         """INSERT INTO clients (id, coach_id, name, phone_number, country, timezone)
                            VALUES ($1, $2, $3, $4, $5, $6)""",
                         client_id, coach_id, client_data['name'], client_data['phone_number'],
-                            client_data['country'], client_data['timezone']
-                        )
-
+                        client_data['country'], client_data['timezone']
+                    )
                     imported_count += 1
-                    
                 except Exception as e:
                     errors.append(f"Line {i}: {str(e)}")
         
@@ -100,50 +105,6 @@ async def import_clients_json(coach_id: str, import_data: ImportData):
         logger.error(f"Import clients error: {e}")
         raise HTTPException(status_code=500, detail=f"Failed to import clients: {str(e)}")
 
-@router.post("/coaches/{coach_id}/categories")
-async def create_category(coach_id: str, category_data: CategoryCreate):
-    """Create a custom category for a coach"""
-    try:
-        # Check if database is connected
-        if not hasattr(db, 'pool') or db.pool is None:
-            raise HTTPException(status_code=500, detail="Database not connected")
-        
-        # Validate coach exists
-        coach = await db.fetchrow("SELECT id FROM coaches WHERE id = $1", coach_id)
-        if not coach:
-            raise HTTPException(status_code=404, detail="Coach not found")
-        
-        # Validate category data
-        category_name = category_data.name.strip()
-        if not category_name:
-            raise HTTPException(status_code=400, detail="Category name cannot be empty")
-        
-        # Check if category already exists
-        existing = await db.fetchrow(
-            "SELECT id FROM categories WHERE name = $1 AND (is_predefined = true OR coach_id = $2)",
-                                            category_name, coach_id
-                                        )
-                                        
-        if existing:
-            raise HTTPException(status_code=400, detail="Category already exists")
-        
-        # Create category
-        category_id = str(uuid.uuid4())
-        
-        await db.execute(
-            "INSERT INTO categories (id, name, coach_id, is_predefined) VALUES ($1, $2, $3, false)",
-            category_id, category_name, coach_id
-        )
-        
-        return {
-            "category_id": category_id,
-            "name": category_name,
-            "status": "created"
-        }
-    
-    except Exception as e:
-        logger.error(f"Create category error: {e}")
-        raise HTTPException(status_code=500, detail=f"Failed to create category: {str(e)}")
 
 @router.post("/coaches/{coach_id}/templates")
 async def create_template(coach_id: str, template_data: TemplateCreate):
@@ -454,7 +415,7 @@ async def get_client_goals(coach_id: str):
         raise HTTPException(status_code=500, detail="Failed to fetch goals")
 
 @router.post("/coaches/{coach_id}/clients/{client_id}/goals")
-async def create_client_goal(coach_id: str, client_id: str, goal_data: dict):
+async def create_client_goal(coach_id: str, client_id: str, goal_data: GoalCreate):
     """Create a new goal for client"""
     try:
         async with db.pool.acquire() as conn:
@@ -469,17 +430,25 @@ async def create_client_goal(coach_id: str, client_id: str, goal_data: dict):
             
             # Get category ID if provided
             category_id = None
-            if 'category' in goal_data:
+            if goal_data.category:
                 category_id = await conn.fetchval(
                     "SELECT id FROM categories WHERE name = $1 AND (is_predefined = true OR coach_id = $2)",
-                    goal_data['category'], coach_id
+                    goal_data.category, coach_id
                 )
+            
+            # Parse target_date if provided
+            target_date = None
+            if goal_data.target_date:
+                try:
+                    target_date = datetime.strptime(goal_data.target_date, '%Y-%m-%d').date()
+                except ValueError:
+                    raise HTTPException(status_code=400, detail="Invalid date format. Use YYYY-MM-DD")
             
             goal_id = await conn.fetchval(
                 """INSERT INTO goals (client_id, title, description, category_id, target_date)
                    VALUES ($1, $2, $3, $4, $5) RETURNING id""",
-                client_id, goal_data['title'], goal_data.get('description'),
-                category_id, goal_data.get('target_date')
+                client_id, goal_data.title, goal_data.description,
+                category_id, target_date
             )
             
             return {"goal_id": str(goal_id), "status": "created"}
@@ -603,28 +572,7 @@ async def send_bulk_message(coach_id: str, bulk_data: dict):
         logger.error(f"Bulk message error: {e}")
         raise HTTPException(status_code=500, detail="Failed to send bulk message")
 
-@router.post("/voice/process")
-async def process_voice_message(voice_data: VoiceProcessRequest):
-    """Process voice messages for transcription"""
-    try:
-        # Validate voice data
-        if not voice_data.audio_url:
-            raise HTTPException(status_code=400, detail="Audio URL is required")
-        
-        if not voice_data.coach_id:
-            raise HTTPException(status_code=400, detail="Coach ID is required")
-        
-        # For now, return a placeholder response
-        # In a real implementation, you would use OpenAI Whisper or similar
-        return {
-            "status": "success",
-            "transcription": "Voice processing not fully implemented yet",
-            "message": "Voice processing integration not fully implemented yet"
-        }
-    
-    except Exception as e:
-        logger.error(f"Process voice message error: {e}")
-        raise HTTPException(status_code=500, detail=f"Failed to process voice message: {str(e)}")
+
 
 # Health check endpoint
 @router.get("/health")

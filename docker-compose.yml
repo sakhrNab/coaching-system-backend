@@ -45,7 +45,7 @@ services:
       - META_APP_ID=${META_APP_ID}
       - META_APP_SECRET=${META_APP_SECRET}
       - WHATSAPP_ACCESS_TOKEN=${WHATSAPP_ACCESS_TOKEN}
-      - WEBHOOK_VERIFY_TOKEN=${WEBHOOK_VERIFY_TOKEN}
+      - WEBHOOK_VERIFY_TOKEN=test-verify-token
       - JWT_SECRET=${JWT_SECRET}
       - ENVIRONMENT=production
     ports:
