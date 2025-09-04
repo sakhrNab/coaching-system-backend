@@ -865,7 +865,7 @@ async def process_whatsapp_webhook(webhook_id: str, webhook_data: Dict[str, Any]
             
             # Mark webhook as processed
             await conn.execute(
-                "UPDATE whatsapp_webhooks SET processed = true WHERE id = $1",
+                "UPDATE whatsapp_webhooks SET processing_status = 'processed' WHERE id = $1",
                 webhook_id
             )
     

@@ -74,3 +74,4 @@ LOG_LEVEL=INFO
 # REDIS CONFIGURATION (for background tasks)
 # =============================================================================
 REDIS_URL=redis://redis:6379/0
+

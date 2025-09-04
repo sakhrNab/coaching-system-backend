@@ -303,7 +303,140 @@ curl -X POST http://localhost:8001/coaches/a61b09a2-1f8d-473c-9e48-6dc50f5a2eac/
 
 ---
 
-## **💬 Messaging**
+## **💬 WhatsApp Messaging & Conversation Tracking**
+
+### 15. Send Message (Enhanced with Template Support)
+**⚠️ POST /messages/send**
+
+**Description:** Send a message with automatic template/conversation window detection
+
+**Features:**
+- Automatically detects if message should be sent as template (celebration/accountability messages)
+- Checks 24-hour conversation window for free messages
+- Uses WhatsApp templates for initiation messages
+- Falls back to templates when outside 24-hour window
+
+**Request:**
+```bash
+curl -X POST http://localhost:8001/messages/send \
+  -H "Content-Type: application/json" \
+  -d '{
+    "client_ids": ["09859d4c-aa56-4eed-82f2-e669b182c534"],
+    "message_type": "celebration",
+    "content": "🎉 What are we celebrating today?",
+    "schedule_type": "now"
+  }'
+```
+
+**Response:**
+```json
+{
+  "message_ids": ["8391997e-c2d3-479e-9167-9feda682f314"],
+  "status": "scheduled"
+}
+```
+
+### 16. Get Conversation Status
+**✅ GET /webhook/conversation-status/{wa_id}**
+
+**Description:** Check if a user has an active 24-hour conversation window
+
+**Request:**
+```bash
+curl -X GET http://localhost:8001/webhook/conversation-status/201280682640
+```
+
+**Response:**
+```json
+{
+  "wa_id": "201280682640",
+  "has_active_conversation": true,
+  "can_send_free_message": true,
+  "conversation": {
+    "conversation_id": "CONV_123456789",
+    "expires_at": "2025-09-05T12:00:00Z",
+    "origin_type": "user_initiated"
+  }
+}
+```
+
+### 17. WhatsApp Webhook (Enhanced)
+**✅ POST /webhook/whatsapp**
+
+**Description:** Enhanced webhook handler for conversation tracking
+
+**Webhook Events Handled:**
+- `messages` - Incoming messages
+- `messages.status` - Message delivery status with conversation info
+- `conversations` - Conversation state changes
+
+**Webhook Configuration for Meta:**
+```
+Webhook URL: https://your-domain.com/webhook/whatsapp
+Verify Token: test-verify-token (or your custom token)
+Webhook Fields: messages, messages.status, conversations
+```
+
+**Sample Webhook Payload:**
+```json
+{
+  "object": "whatsapp_business_account",
+  "entry": [
+    {
+      "id": "WABA_ID",
+      "changes": [
+        {
+          "value": {
+            "messaging_product": "whatsapp",
+            "metadata": {
+              "display_phone_number": "1234567890",
+              "phone_number_id": "123456789012345"
+            },
+            "statuses": [
+              {
+                "id": "wamid.HBgLMjAxMjgwNjgyNjQw...",
+                "recipient_id": "201280682640",
+                "status": "sent",
+                "conversation": {
+                  "id": "CONV_123456789",
+                  "expiration_timestamp": "1694209856",
+                  "origin": { "type": "user_initiated" }
+                }
+              }
+            ]
+          },
+          "field": "messages.status"
+        }
+      ]
+    }
+  ]
+}
+```
+
+### 18. WhatsApp Template Mapping
+**Description:** Automatic mapping between database messages and WhatsApp templates
+
+**Template Messages (Sent as Templates):**
+- 🎉 What are we celebrating today? → `celebration_message_6`
+- ✨ What are you grateful for? → `celebration_message_7`
+- 🌟 What victory are you proud of today? → `celebration_message_9`
+- 🎊 What positive moment made your day? → `celebration_message_1`
+- 💫 What breakthrough did you experience? → `celebration_message_8`
+- 📝 How did you progress on your goals today? → `celebration_message_2`
+- 🎯 What action did you take towards your target? → `celebration_message_3`
+- 💪 What challenge did you overcome today? → `celebration_message_4`
+- 📈 How are you measuring your progress? → `celebration_message_5`
+- 🔥 What will you commit to tomorrow? → `celebration_message_1`
+
+**Message Flow Logic:**
+1. **Template Messages**: Always sent as WhatsApp templates (can initiate conversations)
+2. **Custom Messages**: 
+   - If within 24h window → Sent as free text message
+   - If outside 24h window → Sent as template (charged)
+
+---
+
+## **💬 Legacy Messaging**
 
 ### 15. Send Message
 **⚠️ POST /messages/send**

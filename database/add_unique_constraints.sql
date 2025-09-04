@@ -46,3 +46,4 @@ FROM pg_indexes
 WHERE tablename IN ('categories', 'message_templates')
 AND indexname LIKE '%unique%'
 ORDER BY tablename, indexname;
+

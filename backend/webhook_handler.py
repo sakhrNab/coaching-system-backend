@@ -54,7 +54,7 @@ async def handle_whatsapp_webhook(request: Request):
         # Store webhook for processing
         async with db.pool.acquire() as conn:
             webhook_id = await conn.fetchval(
-                "INSERT INTO whatsapp_webhooks (webhook_data, processed) VALUES ($1, false) RETURNING id",
+                "INSERT INTO whatsapp_webhooks (webhook_data, processing_status) VALUES ($1, 'received') RETURNING id",
                 json.dumps(webhook_data)
             )
         
@@ -160,7 +160,7 @@ async def process_whatsapp_webhook_detailed(webhook_id: str, webhook_data: dict)
             
             # Mark webhook as processed
             await conn.execute(
-                "UPDATE whatsapp_webhooks SET processed = true WHERE id = $1",
+                "UPDATE whatsapp_webhooks SET processing_status = 'processed' WHERE id = $1",
                 webhook_id
             )
     

@@ -650,7 +650,7 @@ def cleanup_old_data():
                 
                 # Clean old webhooks (older than 7 days)
                 deleted_webhooks = await conn.fetchval(
-                    "DELETE FROM whatsapp_webhooks WHERE created_at < $1 AND processed = true RETURNING COUNT(*)",
+                    "DELETE FROM whatsapp_webhooks WHERE created_at < $1 AND processing_status = 'processed' RETURNING COUNT(*)",
                     current_time - timedelta(days=7)
                 )
                 

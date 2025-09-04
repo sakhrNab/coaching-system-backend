@@ -50,3 +50,4 @@ SELECT name, COUNT(*) as count FROM categories WHERE is_predefined = true GROUP 
 
 SELECT 'Templates after cleanup:' as info;
 SELECT message_type, content, COUNT(*) as count FROM message_templates WHERE is_default = true AND coach_id IS NULL GROUP BY message_type, content ORDER BY message_type, content;
+
