@@ -41,10 +41,26 @@ async def handle_webhook(request: Request):
         body = await request.json()
         logger.info(f"📥 Received webhook: {json.dumps(body, indent=2)}")
         
+        # Store webhook for processing
+        async with db.pool.acquire() as conn:
+            webhook_id = await conn.fetchval(
+                "INSERT INTO whatsapp_webhooks (webhook_data, processing_status) VALUES ($1, 'received') RETURNING id",
+                json.dumps(body)
+            )
+            logger.info(f"💾 Stored webhook with ID: {webhook_id}")
+        
         # Process webhook data
         await process_webhook_data(body)
         
-        return {"status": "success"}
+        # Mark as processed
+        async with db.pool.acquire() as conn:
+            await conn.execute(
+                "UPDATE whatsapp_webhooks SET processing_status = 'processed' WHERE id = $1",
+                webhook_id
+            )
+            logger.info(f"✅ Marked webhook {webhook_id} as processed")
+        
+        return {"status": "received"}
     
     except Exception as e:
         logger.error(f"Webhook processing error: {e}")
