@@ -26,13 +26,32 @@ app = FastAPI(
     version="1.0.0"
 )
 
-# Add CORS middleware
+# Add CORS middleware with explicit production domains
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # Configure appropriately for production
+    allow_origins=[
+        "*",  # Allow all origins
+        "http://bosow0kowcgscoc0os4s0sgo.63.250.59.208.sslip.io",  # Frontend domain
+        "https://bosow0kowcgscoc0os4s0sgo.63.250.59.208.sslip.io",  # Frontend HTTPS
+        "http://localhost:3000",  # Local development
+        "http://localhost:8000",  # Local development
+        "http://localhost:8001",  # Local development
+    ],
     allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS", "HEAD", "PATCH"],
+    allow_headers=[
+        "*",
+        "Content-Type",
+        "Authorization", 
+        "Accept",
+        "Origin",
+        "User-Agent",
+        "X-Requested-With",
+        "Access-Control-Request-Method",
+        "Access-Control-Request-Headers",
+    ],
+    expose_headers=["*"],
+    max_age=86400,  # Cache preflight for 24 hours
 )
 
 # Include all routers
@@ -90,6 +109,18 @@ async def detailed_health_check():
             "error": str(e),
             "timestamp": datetime.now().isoformat()
         }
+
+# Explicit CORS preflight handler for all routes
+@app.options("/{full_path:path}")
+async def options_handler(full_path: str):
+    """Handle all OPTIONS requests for CORS preflight"""
+    from fastapi import Response
+    response = Response()
+    response.headers["Access-Control-Allow-Origin"] = "*"
+    response.headers["Access-Control-Allow-Methods"] = "GET, POST, PUT, DELETE, OPTIONS, HEAD, PATCH"
+    response.headers["Access-Control-Allow-Headers"] = "Content-Type, Authorization, Accept, Origin, User-Agent, X-Requested-With"
+    response.headers["Access-Control-Max-Age"] = "86400"
+    return response
 
 if __name__ == "__main__":
     import uvicorn
