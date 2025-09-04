@@ -109,8 +109,24 @@ class WhatsAppClient:
             }
         }
         
+        # Log the request details
+        logger.info(f"🚀 WhatsApp Template API Request:")
+        logger.info(f"   URL: {url}")
+        logger.info(f"   Headers: {headers}")
+        logger.info(f"   Payload: {payload}")
+        logger.info(f"   Original phone: {to}")
+        logger.info(f"   Cleaned phone: {clean_phone}")
+        logger.info(f"   Template name: {template_name}")
+        
         async with httpx.AsyncClient() as client:
             response = await client.post(url, headers=headers, json=payload)
+            
+            # Log the response details
+            logger.info(f"📥 WhatsApp Template API Response:")
+            logger.info(f"   Status Code: {response.status_code}")
+            logger.info(f"   Response Headers: {dict(response.headers)}")
+            logger.info(f"   Response Body: {response.text}")
+            
             return response.json()
     
     async def send_text_message(self, to: str, message: str) -> Dict[str, Any]:
@@ -131,8 +147,23 @@ class WhatsAppClient:
             "text": {"body": message}
         }
         
+        # Log the request details
+        logger.info(f"🚀 WhatsApp API Request:")
+        logger.info(f"   URL: {url}")
+        logger.info(f"   Headers: {headers}")
+        logger.info(f"   Payload: {payload}")
+        logger.info(f"   Original phone: {to}")
+        logger.info(f"   Cleaned phone: {clean_phone}")
+        
         async with httpx.AsyncClient() as client:
             response = await client.post(url, headers=headers, json=payload)
+            
+            # Log the response details
+            logger.info(f"📥 WhatsApp API Response:")
+            logger.info(f"   Status Code: {response.status_code}")
+            logger.info(f"   Response Headers: {dict(response.headers)}")
+            logger.info(f"   Response Body: {response.text}")
+            
             return response.json()
     
     async def send_interactive_message(self, to: str, message: str, buttons: List[Dict[str, str]]) -> Dict[str, Any]:
