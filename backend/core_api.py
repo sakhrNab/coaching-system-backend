@@ -12,7 +12,7 @@ import asyncpg
 import openai
 import httpx
 import json
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 import pytz
 from google.oauth2.credentials import Credentials
 from googleapiclient.discovery import build
@@ -815,6 +815,28 @@ async def process_voice_message(voice_data: VoiceMessageProcessing):
         logger.error(f"Voice processing error: {e}")
         raise HTTPException(status_code=500, detail="Voice processing failed")
 
+@router.get("/webhook/whatsapp")
+async def verify_webhook(
+    hub_mode: str = None,
+    hub_verify_token: str = None,
+    hub_challenge: str = None
+):
+    """Verify webhook endpoint for Meta"""
+    expected_token = os.getenv("WEBHOOK_VERIFY_TOKEN", "test-verify-token")
+    
+    logger.info(f"🔍 Webhook verification attempt:")
+    logger.info(f"   hub_mode: {hub_mode}")
+    logger.info(f"   hub_verify_token: {hub_verify_token}")
+    logger.info(f"   expected_token: {expected_token}")
+    logger.info(f"   tokens_match: {hub_verify_token == expected_token}")
+    
+    if hub_mode == "subscribe" and hub_verify_token == expected_token:
+        logger.info("✅ Webhook verified successfully")
+        return int(hub_challenge)
+    else:
+        logger.warning(f"❌ Webhook verification failed: mode={hub_mode}, token={hub_verify_token}")
+        raise HTTPException(status_code=403, detail="Forbidden")
+
 @router.post("/webhook/whatsapp")
 async def whatsapp_webhook(webhook_data: WhatsAppWebhook, background_tasks: BackgroundTasks):
     """Handle incoming WhatsApp webhooks"""
@@ -836,15 +858,64 @@ async def whatsapp_webhook(webhook_data: WhatsAppWebhook, background_tasks: Back
         return {"status": "error"}
 
 async def process_whatsapp_webhook(webhook_id: str, webhook_data: Dict[str, Any]):
-    """Process WhatsApp webhook data"""
+    """Process WhatsApp webhook data with conversation tracking"""
     try:
         async with db.pool.acquire() as conn:
             for entry in webhook_data.get('entry', []):
                 for change in entry.get('changes', []):
                     if change.get('field') == 'messages':
                         messages = change.get('value', {}).get('messages', [])
+                        contacts = change.get('value', {}).get('contacts', [])
                         
                         for message in messages:
+                            wa_id = message.get("from")
+                            message_id = message.get("id")
+                            
+                            # Find contact info
+                            contact_info = next((c for c in contacts if c.get("wa_id") == wa_id), {})
+                            user_name = contact_info.get("profile", {}).get("name", "Unknown")
+                            
+                            logger.info(f"📨 Received message from {wa_id} ({user_name}): {message_id}")
+                            
+                            # Create user-initiated conversation window (24 hours from now)
+                            try:
+                                logger.info(f"🔍 Creating conversation window for {wa_id}")
+                                
+                                # Deactivate existing conversations for this user
+                                await conn.execute(
+                                    "UPDATE whatsapp_conversations SET is_active = false WHERE wa_id = $1",
+                                    wa_id
+                                )
+                                logger.info(f"🔍 Deactivated existing conversations for {wa_id}")
+                                
+                                # Insert new user-initiated conversation (24 hours from now)
+                                expires_at = datetime.now(timezone.utc) + timedelta(hours=24)
+                                await conn.execute(
+                                    """INSERT INTO whatsapp_conversations 
+                                       (wa_id, conversation_id, origin_type, initiated_at, expires_at)
+                                       VALUES ($1, $2, $3, NOW(), $4)""",
+                                    wa_id, f"user_msg_{message_id}", "user_initiated", expires_at
+                                )
+                                
+                                logger.info(f"✅ Created 24h conversation window for {wa_id} until {expires_at}")
+                                
+                            except Exception as db_error:
+                                logger.error(f"❌ Database error creating conversation: {db_error}")
+                            
+                            # Store message in conversation_messages
+                            try:
+                                await conn.execute(
+                                    """INSERT INTO conversation_messages 
+                                       (from_phone, message_direction, content, message_type, whatsapp_message_id)
+                                       VALUES ($1, $2, $3, $4, $5)""",
+                                    wa_id, "inbound", 
+                                    message.get("text", {}).get("body", ""),
+                                    message.get("type", "text"),
+                                    message_id
+                                )
+                                logger.info(f"💾 Stored message from {wa_id}")
+                            except Exception as msg_error:
+                                logger.error(f"❌ Error storing message: {msg_error}")
                             from_number = message.get('from')
                             message_type = message.get('type')
                             
