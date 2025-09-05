@@ -206,9 +206,13 @@ class WhatsAppClient:
         
         payload = {
             "messaging_product": "whatsapp",
+            "recipient_type": "individual",
             "to": clean_phone,
             "type": "text",
-            "text": {"body": message}
+            "text": {
+                "preview_url": False,
+                "body": message
+            }
         }
         
         # Log the request details
@@ -1230,6 +1234,43 @@ async def get_coach_goals(coach_id: str):
     except Exception as e:
         logger.error(f"Get coach goals error: {e}")
         raise HTTPException(status_code=500, detail=f"Failed to get coach goals: {str(e)}")
+
+@router.get("/coaches/{coach_id}/clients/{client_id}/can-send-free")
+async def can_send_free_message_to_client(coach_id: str, client_id: str):
+    """Check if we can send a free message to a client (within 24h window)"""
+    try:
+        async with db.pool.acquire() as conn:
+            # Get client phone number
+            client = await conn.fetchrow(
+                "SELECT phone_number FROM clients WHERE id = $1 AND coach_id = $2 AND is_active = true",
+                client_id, coach_id
+            )
+            
+            if not client:
+                raise HTTPException(status_code=404, detail="Client not found")
+            
+            # Clean phone number
+            clean_phone = ''.join(filter(str.isdigit, client['phone_number']))
+            
+            # Check if we can send free message
+            whatsapp_client = WhatsAppClient(
+                os.getenv("WHATSAPP_ACCESS_TOKEN"),
+                os.getenv("WHATSAPP_PHONE_NUMBER_ID")
+            )
+            
+            can_send_free = await whatsapp_client.can_send_free_message(clean_phone)
+            
+            return {
+                "can_send_free": can_send_free,
+                "client_id": client_id,
+                "phone_number": clean_phone
+            }
+    
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Check free message eligibility error: {e}")
+        raise HTTPException(status_code=500, detail="Failed to check message eligibility")
 
 @router.get("/coaches/{coach_id}/scheduled-messages")
 async def get_scheduled_messages(coach_id: str):

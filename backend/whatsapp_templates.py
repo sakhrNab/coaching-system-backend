@@ -30,31 +30,36 @@ class WhatsAppTemplateManager:
         # These map database content to WhatsApp template names
         self.fallback_template_mapping = {
             # Celebration messages (mapped to correct WhatsApp template numbers)
-            "🔥 What will you commit to tomorrow?": "celebration_message_1",
-            "📝 How did you progress on your goals today?": "celebration_message_2",
-            "🎯 What action did you take towards your target?": "celebration_message_3",
-            "💪 What challenge did you overcome today?": "celebration_message_4",
-            "📈 How are you measuring your progress?": "celebration_message_5",
             "🎉 What are we celebrating today?": "celebration_message_6",
             "✨ What are you grateful for?": "celebration_message_7", 
-            "💫 What breakthrough did you experience?": "celebration_message_8",
             "🌟 What victory are you proud of today?": "celebration_message_9",
-            "🎊 What positive moment made your day?": "celebration_message_10"
+            "🎊 What positive moment made your day?": "celebration_message_10",
+            "💫 What breakthrough did you experience?": "celebration_message_8",
+            
+            # Accountability messages (mapped to correct WhatsApp template numbers)
+            "🔥 What will you commit to tomorrow?": "accountability_message_1",
+            "📝 How did you progress on your goals today?": "accountability_message_2",
+            "🎯 What action did you take towards your target?": "accountability_message_3",
+            "💪 What challenge did you overcome today?": "accountability_message_4",
+            "📈 How are you measuring your progress?": "accountability_message_5"
         }
         
         # Fallback language code mapping
-        # All celebration messages use 'en' language code
+        # All messages use 'en' language code
         self.fallback_language_mapping = {
-            "celebration_message_1": "en",
-            "celebration_message_2": "en",
-            "celebration_message_3": "en",
-            "celebration_message_4": "en",
-            "celebration_message_5": "en",
+            # Celebration messages
             "celebration_message_6": "en",
             "celebration_message_7": "en",
             "celebration_message_8": "en",
             "celebration_message_9": "en",
             "celebration_message_10": "en",
+            # Accountability messages
+            "accountability_message_1": "en",
+            "accountability_message_2": "en",
+            "accountability_message_3": "en",
+            "accountability_message_4": "en",
+            "accountability_message_5": "en",
+            # System messages
             "hello_world": "en_US"
         }
         
