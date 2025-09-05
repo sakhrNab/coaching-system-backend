@@ -12,6 +12,7 @@ from datetime import datetime
 from typing import List, Dict
 from .database import db
 from .core_api import CategoryCreate, TemplateCreate, ImportData, GoogleContactsImport, VoiceProcessRequest
+from .whatsapp_templates import template_manager
 import uuid
 import httpx
 from datetime import datetime
@@ -181,6 +182,68 @@ async def get_message_templates(coach_id: str, message_type: str = None):
     except Exception as e:
         logger.error(f"Get templates error: {e}")
         raise HTTPException(status_code=500, detail="Failed to fetch templates")
+
+@router.put("/templates/{template_id}/language-code")
+async def update_template_language_code(template_id: str, language_code: str):
+    """Update the language code for a template"""
+    try:
+        # Validate language code format
+        if not language_code or len(language_code) < 2:
+            raise HTTPException(status_code=400, detail="Invalid language code format")
+        
+        async with db.pool.acquire() as conn:
+            # Update the language code
+            result = await conn.execute(
+                "UPDATE message_templates SET language_code = $1 WHERE id = $2",
+                language_code, template_id
+            )
+            
+            if result == "UPDATE 0":
+                raise HTTPException(status_code=404, detail="Template not found")
+            
+            # Reload template cache
+            await template_manager.load_templates_from_db()
+            
+            return {"message": "Language code updated successfully", "language_code": language_code}
+    
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Update language code error: {e}")
+        raise HTTPException(status_code=500, detail="Failed to update language code")
+
+@router.get("/templates/{template_id}")
+async def get_template_details(template_id: str):
+    """Get detailed information about a template including language code"""
+    try:
+        async with db.pool.acquire() as conn:
+            template = await conn.fetchrow(
+                """SELECT id, message_type, content, language_code, whatsapp_template_name, 
+                          is_default, is_active, created_at
+                   FROM message_templates 
+                   WHERE id = $1""",
+                template_id
+            )
+            
+            if not template:
+                raise HTTPException(status_code=404, detail="Template not found")
+            
+            return {
+                "id": str(template['id']),
+                "message_type": template['message_type'],
+                "content": template['content'],
+                "language_code": template['language_code'],
+                "whatsapp_template_name": template['whatsapp_template_name'],
+                "is_default": template['is_default'],
+                "is_active": template['is_active'],
+                "created_at": template['created_at']
+            }
+    
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Get template details error: {e}")
+        raise HTTPException(status_code=500, detail="Failed to fetch template details")
 
 @router.get("/coaches/{coach_id}/analytics")
 async def get_message_analytics(coach_id: str, days: int = 30):

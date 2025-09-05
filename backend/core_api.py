@@ -78,6 +78,10 @@ class VoiceProcessRequest(BaseModel):
 # Use the database instance from database.py
 from .database import db
 from .google_sheets_service import sheets_service
+from .whatsapp_templates import template_manager
+
+# Initialize template manager with database connection
+template_manager.set_db_pool(db.pool)
 
 # WhatsApp Business API client
 class WhatsAppClient:
@@ -97,6 +101,9 @@ class WhatsAppClient:
         # Clean phone number - remove + and any non-digits
         clean_phone = ''.join(filter(str.isdigit, to))
         
+        # Get the appropriate language code for this template
+        language_code = template_manager.get_template_language_code(template_name)
+        
         payload = {
             "messaging_product": "whatsapp",
             "to": clean_phone,
@@ -104,7 +111,7 @@ class WhatsAppClient:
             "template": {
                 "name": template_name,
                 "language": {
-                    "code": "en_US"
+                    "code": language_code
                 }
             }
         }
@@ -117,6 +124,7 @@ class WhatsAppClient:
         logger.info(f"   Original phone: {to}")
         logger.info(f"   Cleaned phone: {clean_phone}")
         logger.info(f"   Template name: {template_name}")
+        logger.info(f"   Language code: {language_code}")
         
         async with httpx.AsyncClient() as client:
             response = await client.post(url, headers=headers, json=payload)
@@ -140,10 +148,13 @@ class WhatsAppClient:
         # Clean phone number - remove + and any non-digits
         clean_phone = ''.join(filter(str.isdigit, to))
         
+        # Get the appropriate language code for this template
+        language_code = template_manager.get_template_language_code(template_name)
+        
         # Build template with parameters
         template_data = {
             "name": template_name,
-            "language": {"code": "en_US"}
+            "language": {"code": language_code}
         }
         
         # Add parameters if provided
@@ -166,6 +177,7 @@ class WhatsAppClient:
         logger.info(f"   Headers: {headers}")
         logger.info(f"   Payload: {payload}")
         logger.info(f"   Template name: {template_name}")
+        logger.info(f"   Language code: {language_code}")
         logger.info(f"   Parameters: {parameters}")
         
         async with httpx.AsyncClient() as client:

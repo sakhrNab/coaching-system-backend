@@ -16,6 +16,7 @@ from datetime import datetime, timedelta
 import pytz
 from google.oauth2.credentials import Credentials
 from googleapiclient.discovery import build
+from .whatsapp_templates import template_manager
 
 # Configure logging
 logging.basicConfig(
@@ -80,6 +81,9 @@ class WhatsAppClient:
         # Clean phone number - remove all non-digits
         clean_phone = ''.join(filter(str.isdigit, to))
         
+        # Get the appropriate language code for this template
+        language_code = template_manager.get_template_language_code(template_name)
+        
         payload = {
             "messaging_product": "whatsapp",
             "to": clean_phone,
@@ -87,7 +91,7 @@ class WhatsAppClient:
             "template": {
                 "name": template_name,
                 "language": {
-                    "code": "en_US"
+                    "code": language_code
                 }
             }
         }
