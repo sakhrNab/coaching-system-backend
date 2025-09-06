@@ -3,7 +3,7 @@ Coaching System Backend API
 FastAPI application handling WhatsApp integration, voice processing, and scheduling
 """
 
-from fastapi import APIRouter, HTTPException, Depends, BackgroundTasks
+from fastapi import APIRouter, HTTPException, Depends, BackgroundTasks, Request
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 from typing import List, Optional, Dict, Any
@@ -815,26 +815,51 @@ async def process_voice_message(voice_data: VoiceMessageProcessing):
         logger.error(f"Voice processing error: {e}")
         raise HTTPException(status_code=500, detail="Voice processing failed")
 
+@router.get("/test-webhook")
+async def test_webhook():
+    """Test webhook endpoint accessibility"""
+    logger.info("🧪 Test webhook endpoint accessed")
+    return {"message": "Test webhook endpoint is accessible", "status": "success"}
+
+@router.get("/webhook/test")
+async def test_webhook_path():
+    """Test webhook path specifically"""
+    logger.info("🧪 Test webhook path accessed")
+    return {"message": "Test webhook path is accessible", "status": "success"}
+
 @router.get("/webhook/whatsapp")
-async def verify_webhook(
-    hub_mode: str = None,
-    hub_verify_token: str = None,
-    hub_challenge: str = None
-):
-    """Verify webhook endpoint for Meta"""
+async def verify_webhook(request: Request):
+    """Verify webhook endpoint for Meta - following Meta's exact specification"""
     expected_token = os.getenv("WEBHOOK_VERIFY_TOKEN", "test-verify-token")
     
-    logger.info(f"🔍 Webhook verification attempt:")
-    logger.info(f"   hub_mode: {hub_mode}")
-    logger.info(f"   hub_verify_token: {hub_verify_token}")
-    logger.info(f"   expected_token: {expected_token}")
-    logger.info(f"   tokens_match: {hub_verify_token == expected_token}")
+    # Get query parameters exactly as Meta sends them
+    query_params = dict(request.query_params)
     
-    if hub_mode == "subscribe" and hub_verify_token == expected_token:
-        logger.info("✅ Webhook verified successfully")
-        return int(hub_challenge)
+    # Meta sends: hub.mode, hub.verify_token, hub.challenge (with dots)
+    mode = query_params.get("hub.mode")
+    verify_token = query_params.get("hub.verify_token") 
+    challenge = query_params.get("hub.challenge")
+    
+    logger.info(f"🔍 Webhook verification attempt:")
+    logger.info(f"   All query params: {query_params}")
+    logger.info(f"   hub.mode: {mode}")
+    logger.info(f"   hub.verify_token: {verify_token}")
+    logger.info(f"   hub.challenge: {challenge}")
+    logger.info(f"   expected_token: {expected_token}")
+    logger.info(f"   tokens_match: {verify_token == expected_token}")
+    logger.info(f"   mode_check: {mode == 'subscribe'}")
+    
+    # If no parameters provided, return a helpful message
+    if not query_params:
+        logger.info("📝 Webhook endpoint accessed without parameters")
+        return {"message": "Webhook endpoint is accessible. Use Meta's verification parameters.", "status": "ready"}
+    
+    # Follow Meta's exact specification
+    if mode == "subscribe" and verify_token == expected_token:
+        logger.info("✅ WEBHOOK VERIFIED")
+        return int(challenge)
     else:
-        logger.warning(f"❌ Webhook verification failed: mode={hub_mode}, token={hub_verify_token}")
+        logger.warning(f"❌ Webhook verification failed: mode={mode}, token={verify_token}")
         raise HTTPException(status_code=403, detail="Forbidden")
 
 @router.post("/webhook/whatsapp")
