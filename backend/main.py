@@ -31,8 +31,9 @@ app.add_middleware(
     CORSMiddleware,
     allow_origins=[
         "*",  # Allow all origins
-        "http://bosow0kowcgscoc0os4s0sgo.63.250.59.208.sslip.io",  # Frontend domain
-        "https://bosow0kowcgscoc0os4s0sgo.63.250.59.208.sslip.io",  # Frontend HTTPS
+        "https://coach.aiwaverider.com",  # New frontend domain
+        "http://bosow0kowcgscoc0os4s0sgo.63.250.59.208.sslip.io",  # Old frontend domain (for transition)
+        "https://bosow0kowcgscoc0os4s0sgo.63.250.59.208.sslip.io",  # Old frontend HTTPS (for transition)
         "http://localhost:3000",  # Local development
         "http://localhost:8000",  # Local development
         "http://localhost:8001",  # Local development
