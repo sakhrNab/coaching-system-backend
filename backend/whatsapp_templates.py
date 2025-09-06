@@ -171,24 +171,16 @@ class WhatsAppTemplateManager:
     
     def is_template_message(self, message_content: str) -> bool:
         """Check if a message should be sent as a template"""
-        # Check database cache first
+        # Check database cache first - EXACT match only
         if self.cache_loaded and message_content in self.template_cache:
             return True
         
-        # Check fallback mappings
+        # Check fallback mappings - EXACT match only
         if message_content in self.fallback_template_mapping:
             return True
         
-        # Check partial match in database cache
-        if self.cache_loaded:
-            for content in self.template_cache:
-                if content in message_content:
-                    return True
-        
-        # Check partial match in fallback
-        for content in self.fallback_template_mapping:
-            if content in message_content:
-                return True
+        # NO partial matching - only exact matches should be treated as templates
+        # This prevents custom messages that contain template text from being sent as templates
         
         return False
     
