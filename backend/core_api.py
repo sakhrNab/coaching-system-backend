@@ -649,6 +649,18 @@ async def send_messages(message_request: MessageRequest, background_tasks: Backg
                     logger.warning(f"Client {client_id} not found or inactive")
                     continue
                 
+                # Handle datetime conversion for scheduled messages
+                scheduled_time = None
+                if message_request.schedule_type == 'specific' and message_request.scheduled_time:
+                    if isinstance(message_request.scheduled_time, str):
+                        # Convert ISO string to datetime
+                        from datetime import datetime
+                        scheduled_time = datetime.fromisoformat(message_request.scheduled_time.replace('Z', '+00:00'))
+                    else:
+                        scheduled_time = message_request.scheduled_time
+                elif message_request.schedule_type == 'now':
+                    scheduled_time = datetime.now()
+                
                 # Create scheduled message record
                 scheduled_id = await conn.fetchval(
                     """INSERT INTO scheduled_messages 
@@ -656,7 +668,7 @@ async def send_messages(message_request: MessageRequest, background_tasks: Backg
                        VALUES ($1, $2, $3, $4, $5, $6, $7)
                        RETURNING id""",
                     client['coach_id'], client_id, message_request.message_type, message_request.content,
-                    message_request.schedule_type, message_request.scheduled_time,
+                    message_request.schedule_type, scheduled_time,
                     'scheduled' if message_request.schedule_type != 'now' else 'pending'
                 )
                 
