@@ -9,7 +9,7 @@ import secrets
 import io
 import base64
 from typing import Optional, Dict, Any
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from fastapi import APIRouter, HTTPException, Depends, Request, Response
 from fastapi.responses import HTMLResponse, RedirectResponse
 from pydantic import BaseModel, Field
@@ -182,7 +182,6 @@ class QROnboardingManager:
         """Create a new onboarding session"""
         session_id = secrets.token_urlsafe(32)
         # Use UTC timezone for consistency across different server locations
-        from datetime import timezone
         expires_at = datetime.now(timezone.utc) + timedelta(minutes=expires_in_minutes)
         
         from .database import db
