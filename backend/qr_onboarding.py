@@ -476,7 +476,7 @@ qr_manager = QROnboardingManager()
                      }
                  }
              })
-async def generate_qr_code(request: QRGenerateRequest, base_url: str = "https://coaches.aiwaverider.com"):
+async def generate_qr_code(request: QRGenerateRequest, base_url: str = "https://coach.aiwaverider.com"):
     """Generate QR code for onboarding"""
     try:
         # Create session

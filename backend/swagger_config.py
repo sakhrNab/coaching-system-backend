@@ -80,7 +80,7 @@ def create_swagger_app() -> FastAPI:
         allow_origins=[
             "http://localhost:3000",
             "https://coach-system.aiwaverider.com",
-            "https://coaches.aiwaverider.com",
+            "https://coach.aiwaverider.com",
         ],
         allow_credentials=True,
         allow_methods=["*"],
