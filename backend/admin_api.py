@@ -28,7 +28,33 @@ async def verify_admin_access(current_coach: dict = Depends(get_current_coach)):
 
 # System Statistics Endpoints
 
-@router.get("/stats")
+@router.get("/stats",
+            summary="Get System Statistics",
+            description="""
+            Get comprehensive system statistics for admin dashboard.
+            
+            This endpoint provides detailed system-wide statistics including
+            user counts, message activity, system performance, and usage metrics.
+            
+            **Features:**
+            - System-wide metrics
+            - User activity statistics
+            - Message performance data
+            - System health indicators
+            - Time-based filtering
+            
+            **Use Cases:**
+            - Admin dashboard
+            - System monitoring
+            - Performance analysis
+            - Usage reporting
+            """,
+            tags=["Admin - System Statistics"],
+            responses={
+                200: {"description": "System statistics retrieved successfully"},
+                401: {"description": "Unauthorized access"},
+                500: {"description": "Database error"}
+            })
 async def get_system_stats(
     range_param: str = Query("7d", alias="range"),
     admin: dict = Depends(verify_admin_access)
@@ -122,7 +148,33 @@ async def get_system_stats(
         logger.error(f"Get system stats error: {e}")
         raise HTTPException(status_code=500, detail="Failed to fetch system statistics")
 
-@router.get("/coaches")
+@router.get("/coaches",
+            summary="Get All Coaches",
+            description="""
+            Get all coaches with their statistics and information.
+            
+            This endpoint retrieves a comprehensive list of all coaches in the system
+            along with their performance metrics, client counts, and activity data.
+            
+            **Features:**
+            - Complete coach list
+            - Performance metrics
+            - Client statistics
+            - Activity data
+            - Status information
+            
+            **Use Cases:**
+            - Coach management
+            - Performance monitoring
+            - System administration
+            - User oversight
+            """,
+            tags=["Admin - Coach Management"],
+            responses={
+                200: {"description": "Coaches retrieved successfully"},
+                401: {"description": "Unauthorized access"},
+                500: {"description": "Database error"}
+            })
 async def get_all_coaches(admin: dict = Depends(verify_admin_access)):
     """Get all coaches with their statistics"""
     try:
@@ -165,7 +217,33 @@ async def get_all_coaches(admin: dict = Depends(verify_admin_access)):
         logger.error(f"Get all coaches error: {e}")
         raise HTTPException(status_code=500, detail="Failed to fetch coaches")
 
-@router.get("/activity")
+@router.get("/activity",
+            summary="Get Recent System Activity",
+            description="""
+            Get recent system activity and events.
+            
+            This endpoint retrieves recent system activity including user actions,
+            system events, and important activities for monitoring and auditing.
+            
+            **Features:**
+            - Recent activity log
+            - User actions tracking
+            - System events
+            - Activity filtering
+            - Audit trail
+            
+            **Use Cases:**
+            - System monitoring
+            - Activity auditing
+            - Event tracking
+            - Security monitoring
+            """,
+            tags=["Admin - System Monitoring"],
+            responses={
+                200: {"description": "Activity retrieved successfully"},
+                401: {"description": "Unauthorized access"},
+                500: {"description": "Database error"}
+            })
 async def get_recent_activity(
     limit: int = Query(50, le=200),
     admin: dict = Depends(verify_admin_access)
@@ -254,7 +332,33 @@ async def get_recent_activity(
         logger.error(f"Get recent activity error: {e}")
         raise HTTPException(status_code=500, detail="Failed to fetch recent activity")
 
-@router.get("/export-report")
+@router.get("/export-report",
+            summary="Export System Report",
+            description="""
+            Export comprehensive system report as CSV.
+            
+            This endpoint generates and exports a detailed system report including
+            user statistics, system performance, and usage data in CSV format.
+            
+            **Features:**
+            - Comprehensive system report
+            - CSV format export
+            - Time-based filtering
+            - Detailed metrics
+            - Downloadable file
+            
+            **Use Cases:**
+            - System reporting
+            - Data analysis
+            - Performance review
+            - Compliance reporting
+            """,
+            tags=["Admin - Data Export"],
+            responses={
+                200: {"description": "Report exported successfully"},
+                401: {"description": "Unauthorized access"},
+                500: {"description": "Export error"}
+            })
 async def export_system_report(
     range_param: str = Query("30d", alias="range"),
     admin: dict = Depends(verify_admin_access)
@@ -348,7 +452,34 @@ async def export_system_report(
         logger.error(f"Export report error: {e}")
         raise HTTPException(status_code=500, detail="Failed to export report")
 
-@router.get("/coaches/{coach_id}/detailed")
+@router.get("/coaches/{coach_id}/detailed",
+            summary="Get Coach Detailed Statistics",
+            description="""
+            Get detailed statistics for a specific coach.
+            
+            This endpoint provides comprehensive statistics and performance metrics
+            for a specific coach including client data, message activity, and usage patterns.
+            
+            **Features:**
+            - Detailed coach statistics
+            - Performance metrics
+            - Client data analysis
+            - Message activity tracking
+            - Usage patterns
+            
+            **Use Cases:**
+            - Coach performance analysis
+            - Detailed reporting
+            - Individual monitoring
+            - Performance review
+            """,
+            tags=["Admin - Coach Management"],
+            responses={
+                200: {"description": "Detailed statistics retrieved successfully"},
+                401: {"description": "Unauthorized access"},
+                404: {"description": "Coach not found"},
+                500: {"description": "Database error"}
+            })
 async def get_coach_detailed_stats(
     coach_id: str,
     admin: dict = Depends(verify_admin_access)
@@ -439,7 +570,34 @@ async def get_coach_detailed_stats(
         logger.error(f"Get coach detailed stats error: {e}")
         raise HTTPException(status_code=500, detail="Failed to fetch coach statistics")
 
-@router.post("/coaches/{coach_id}/suspend")
+@router.post("/coaches/{coach_id}/suspend",
+             summary="Suspend Coach",
+             description="""
+             Suspend a coach's account and access.
+             
+             This endpoint allows administrators to suspend a coach's account,
+             preventing them from accessing the system and sending messages.
+             
+             **Features:**
+             - Account suspension
+             - Access restriction
+             - Reason tracking
+             - Audit logging
+             - Immediate effect
+             
+             **Use Cases:**
+             - Account management
+             - Policy violations
+             - Security measures
+             - Administrative actions
+             """,
+             tags=["Admin - Coach Management"],
+             responses={
+                 200: {"description": "Coach suspended successfully"},
+                 401: {"description": "Unauthorized access"},
+                 404: {"description": "Coach not found"},
+                 500: {"description": "Database error"}
+             })
 async def suspend_coach(
     coach_id: str,
     reason: str,
@@ -480,7 +638,33 @@ async def suspend_coach(
         logger.error(f"Suspend coach error: {e}")
         raise HTTPException(status_code=500, detail="Failed to suspend coach")
 
-@router.post("/system/restart")
+@router.post("/system/restart",
+             summary="Restart System Services",
+             description="""
+             Restart system services (use with caution).
+             
+             This endpoint allows administrators to restart system services
+             for maintenance or troubleshooting purposes.
+             
+             **Features:**
+             - Service restart
+             - System maintenance
+             - Service recovery
+             - Audit logging
+             - Immediate effect
+             
+             **Use Cases:**
+             - System maintenance
+             - Service recovery
+             - Troubleshooting
+             - Emergency restart
+             """,
+             tags=["Admin - System Management"],
+             responses={
+                 200: {"description": "System services restarted successfully"},
+                 401: {"description": "Unauthorized access"},
+                 500: {"description": "Restart error"}
+             })
 async def restart_system_services(admin: dict = Depends(verify_admin_access)):
     """Restart system services (use with caution)"""
     try:
@@ -504,7 +688,33 @@ async def restart_system_services(admin: dict = Depends(verify_admin_access)):
         logger.error(f"System restart error: {e}")
         raise HTTPException(status_code=500, detail="Failed to restart services")
 
-@router.get("/system/performance")
+@router.get("/system/performance",
+            summary="Get System Performance Metrics",
+            description="""
+            Get real-time system performance metrics.
+            
+            This endpoint provides real-time system performance data including
+            CPU usage, memory consumption, database performance, and system health.
+            
+            **Features:**
+            - Real-time metrics
+            - CPU and memory usage
+            - Database performance
+            - System health indicators
+            - Performance monitoring
+            
+            **Use Cases:**
+            - Performance monitoring
+            - System health checks
+            - Resource management
+            - Troubleshooting
+            """,
+            tags=["Admin - System Monitoring"],
+            responses={
+                200: {"description": "Performance metrics retrieved successfully"},
+                401: {"description": "Unauthorized access"},
+                500: {"description": "Database error"}
+            })
 async def get_system_performance(admin: dict = Depends(verify_admin_access)):
     """Get real-time system performance metrics"""
     try:
@@ -560,7 +770,33 @@ async def get_system_performance(admin: dict = Depends(verify_admin_access)):
         logger.error(f"Get system performance error: {e}")
         raise HTTPException(status_code=500, detail="Failed to fetch performance metrics")
 
-@router.post("/maintenance/cleanup")
+@router.post("/maintenance/cleanup",
+             summary="Trigger Maintenance Cleanup",
+             description="""
+             Trigger manual maintenance cleanup.
+             
+             This endpoint initiates system maintenance tasks including
+             data cleanup, log rotation, and system optimization.
+             
+             **Features:**
+             - Data cleanup
+             - Log rotation
+             - System optimization
+             - Maintenance tasks
+             - Performance improvement
+             
+             **Use Cases:**
+             - System maintenance
+             - Performance optimization
+             - Data cleanup
+             - System health
+             """,
+             tags=["Admin - System Management"],
+             responses={
+                 200: {"description": "Maintenance cleanup triggered successfully"},
+                 401: {"description": "Unauthorized access"},
+                 500: {"description": "Cleanup error"}
+             })
 async def trigger_maintenance_cleanup(admin: dict = Depends(verify_admin_access)):
     """Trigger manual maintenance cleanup"""
     try:
@@ -578,7 +814,33 @@ async def trigger_maintenance_cleanup(admin: dict = Depends(verify_admin_access)
         logger.error(f"Maintenance cleanup error: {e}")
         raise HTTPException(status_code=500, detail="Failed to initiate cleanup")
 
-@router.get("/logs")
+@router.get("/logs",
+            summary="Get System Logs",
+            description="""
+            Get system logs for monitoring and debugging.
+            
+            This endpoint retrieves system logs with filtering options
+            for log level and quantity to aid in monitoring and debugging.
+            
+            **Features:**
+            - Log level filtering
+            - Quantity limiting
+            - System monitoring
+            - Debug information
+            - Error tracking
+            
+            **Use Cases:**
+            - System debugging
+            - Error monitoring
+            - Log analysis
+            - Troubleshooting
+            """,
+            tags=["Admin - System Monitoring"],
+            responses={
+                200: {"description": "Logs retrieved successfully"},
+                401: {"description": "Unauthorized access"},
+                500: {"description": "Database error"}
+            })
 async def get_system_logs(
     level: str = Query("INFO", regex="^(DEBUG|INFO|WARNING|ERROR|CRITICAL)$"),
     limit: int = Query(100, le=1000),
@@ -616,7 +878,34 @@ async def get_system_logs(
         logger.error(f"Get system logs error: {e}")
         raise HTTPException(status_code=500, detail="Failed to fetch system logs")
 
-@router.post("/coaches/{coach_id}/reset-api")
+@router.post("/coaches/{coach_id}/reset-api",
+             summary="Reset Coach WhatsApp API",
+             description="""
+             Reset a coach's WhatsApp API credentials.
+             
+             This endpoint allows administrators to reset a coach's
+             WhatsApp API credentials for troubleshooting or security purposes.
+             
+             **Features:**
+             - API credential reset
+             - Security measures
+             - Troubleshooting support
+             - Access management
+             - Audit logging
+             
+             **Use Cases:**
+             - API troubleshooting
+             - Security measures
+             - Access management
+             - Credential reset
+             """,
+             tags=["Admin - Coach Management"],
+             responses={
+                 200: {"description": "API credentials reset successfully"},
+                 401: {"description": "Unauthorized access"},
+                 404: {"description": "Coach not found"},
+                 500: {"description": "Database error"}
+             })
 async def reset_coach_whatsapp_api(
     coach_id: str,
     new_token: str,
@@ -644,7 +933,33 @@ async def reset_coach_whatsapp_api(
         logger.error(f"Reset API token error: {e}")
         raise HTTPException(status_code=500, detail="Failed to reset API token")
 
-@router.get("/analytics/summary")
+@router.get("/analytics/summary",
+            summary="Get Analytics Summary",
+            description="""
+            Get comprehensive analytics summary for the system.
+            
+            This endpoint provides a high-level overview of system analytics
+            including user activity, message performance, and usage trends.
+            
+            **Features:**
+            - System-wide analytics
+            - Performance trends
+            - Usage patterns
+            - Activity summaries
+            - Time-based filtering
+            
+            **Use Cases:**
+            - System overview
+            - Performance analysis
+            - Usage reporting
+            - Trend analysis
+            """,
+            tags=["Admin - Analytics"],
+            responses={
+                200: {"description": "Analytics summary retrieved successfully"},
+                401: {"description": "Unauthorized access"},
+                500: {"description": "Database error"}
+            })
 async def get_analytics_summary(
     range_param: str = Query("30d", alias="range"),
     admin: dict = Depends(verify_admin_access)
@@ -741,7 +1056,33 @@ async def get_analytics_summary(
         logger.error(f"Get analytics summary error: {e}")
         raise HTTPException(status_code=500, detail="Failed to fetch analytics summary")
 
-@router.get("/system/queue-status")
+@router.get("/system/queue-status",
+            summary="Get Queue Status",
+            description="""
+            Get system queue status and performance metrics.
+            
+            This endpoint provides information about system queues including
+            message processing queues, task queues, and system performance.
+            
+            **Features:**
+            - Queue status monitoring
+            - Performance metrics
+            - Task queue information
+            - System health indicators
+            - Queue performance data
+            
+            **Use Cases:**
+            - System monitoring
+            - Performance analysis
+            - Queue management
+            - System health checks
+            """,
+            tags=["Admin - System Monitoring"],
+            responses={
+                200: {"description": "Queue status retrieved successfully"},
+                401: {"description": "Unauthorized access"},
+                500: {"description": "Database error"}
+            })
 async def get_queue_status(admin: dict = Depends(verify_admin_access)):
     """Get background task queue status"""
     try:
@@ -786,7 +1127,33 @@ async def get_queue_status(admin: dict = Depends(verify_admin_access)):
         logger.error(f"Get queue status error: {e}")
         raise HTTPException(status_code=500, detail="Failed to fetch queue status")
 
-@router.post("/system/clear-cache")
+@router.post("/system/clear-cache",
+             summary="Clear System Cache",
+             description="""
+             Clear system cache and temporary data.
+             
+             This endpoint allows administrators to clear system caches
+             and temporary data to improve performance and resolve issues.
+             
+             **Features:**
+             - Cache clearing
+             - Performance optimization
+             - Data cleanup
+             - System maintenance
+             - Immediate effect
+             
+             **Use Cases:**
+             - Performance optimization
+             - Cache management
+             - System maintenance
+             - Troubleshooting
+             """,
+             tags=["Admin - System Management"],
+             responses={
+                 200: {"description": "Cache cleared successfully"},
+                 401: {"description": "Unauthorized access"},
+                 500: {"description": "Cache error"}
+             })
 async def clear_system_cache(admin: dict = Depends(verify_admin_access)):
     """Clear system caches"""
     try:
@@ -814,7 +1181,33 @@ async def clear_system_cache(admin: dict = Depends(verify_admin_access)):
         logger.error(f"Clear cache error: {e}")
         raise HTTPException(status_code=500, detail="Failed to clear cache")
 
-@router.get("/errors/recent")
+@router.get("/errors/recent",
+            summary="Get Recent Errors",
+            description="""
+            Get recent system errors and exceptions.
+            
+            This endpoint retrieves recent system errors and exceptions
+            for monitoring, debugging, and troubleshooting purposes.
+            
+            **Features:**
+            - Recent error log
+            - Error categorization
+            - Exception tracking
+            - Error filtering
+            - Debug information
+            
+            **Use Cases:**
+            - Error monitoring
+            - System debugging
+            - Exception tracking
+            - Troubleshooting
+            """,
+            tags=["Admin - System Monitoring"],
+            responses={
+                200: {"description": "Recent errors retrieved successfully"},
+                401: {"description": "Unauthorized access"},
+                500: {"description": "Database error"}
+            })
 async def get_recent_errors(
     limit: int = Query(50, le=200),
     admin: dict = Depends(verify_admin_access)

@@ -1,0 +1,680 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SQL Documentation - Database Queries</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: #f5f7fa;
+            color: #333;
+        }
+        
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 1rem 2rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+        }
+        
+        .header h1 {
+            font-size: 1.5rem;
+        }
+        
+        .logout-btn {
+            background: rgba(255, 255, 255, 0.2);
+            color: white;
+            border: 1px solid rgba(255, 255, 255, 0.3);
+            padding: 0.5rem 1rem;
+            border-radius: 5px;
+            cursor: pointer;
+            text-decoration: none;
+            transition: background 0.3s ease;
+        }
+        
+        .logout-btn:hover {
+            background: rgba(255, 255, 255, 0.3);
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 2rem;
+        }
+        
+        .category-tabs {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.5rem;
+            margin-bottom: 2rem;
+            border-bottom: 2px solid #e1e5e9;
+        }
+        
+        .tab {
+            padding: 0.75rem 1.5rem;
+            background: #f8f9fa;
+            border: 1px solid #e1e5e9;
+            border-bottom: none;
+            cursor: pointer;
+            border-radius: 8px 8px 0 0;
+            transition: all 0.3s ease;
+            font-weight: 500;
+        }
+        
+        .tab:hover {
+            background: #e9ecef;
+        }
+        
+        .tab.active {
+            background: white;
+            border-color: #667eea;
+            color: #667eea;
+        }
+        
+        .category-content {
+            display: none;
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+            overflow: hidden;
+        }
+        
+        .category-content.active {
+            display: block;
+        }
+        
+        .category-header {
+            background: #f8f9fa;
+            padding: 1.5rem;
+            border-bottom: 1px solid #e1e5e9;
+        }
+        
+        .category-title {
+            font-size: 1.25rem;
+            font-weight: 600;
+            color: #333;
+            margin-bottom: 0.5rem;
+        }
+        
+        .category-description {
+            color: #666;
+            font-size: 0.9rem;
+        }
+        
+        .queries-list {
+            padding: 1.5rem;
+        }
+        
+        .query-item {
+            margin-bottom: 2rem;
+            border: 1px solid #e1e5e9;
+            border-radius: 8px;
+            overflow: hidden;
+        }
+        
+        .query-header {
+            background: #f8f9fa;
+            padding: 1rem 1.5rem;
+            border-bottom: 1px solid #e1e5e9;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .query-title-section {
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+        }
+        
+        .query-title {
+            font-weight: 600;
+            color: #333;
+        }
+        
+        .query-dates {
+            display: flex;
+            flex-direction: column;
+            gap: 0.25rem;
+            font-size: 0.85rem;
+        }
+        
+        .created-date {
+            color: #6c757d;
+            font-style: italic;
+        }
+        
+        .updated-date {
+            color: #28a745;
+            font-style: italic;
+        }
+        
+        /* Custom Query Section Styles */
+        .custom-query-section {
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            margin-bottom: 2rem;
+            overflow: hidden;
+        }
+        
+        .custom-query-header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 1.5rem 2rem;
+        }
+        
+        .custom-query-header h3 {
+            margin: 0 0 0.5rem 0;
+            font-size: 1.25rem;
+        }
+        
+        .custom-query-header p {
+            margin: 0;
+            opacity: 0.9;
+            font-size: 0.9rem;
+        }
+        
+        .custom-query-body {
+            padding: 2rem;
+        }
+        
+        .custom-query-textarea {
+            width: 100%;
+            min-height: 150px;
+            padding: 1rem;
+            border: 2px solid #e1e5e9;
+            border-radius: 8px;
+            font-family: 'Courier New', monospace;
+            font-size: 14px;
+            line-height: 1.5;
+            resize: vertical;
+            transition: border-color 0.3s ease;
+        }
+        
+        .custom-query-textarea:focus {
+            outline: none;
+            border-color: #667eea;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+        }
+        
+        .custom-query-actions {
+            display: flex;
+            gap: 1rem;
+            margin: 1.5rem 0;
+            flex-wrap: wrap;
+        }
+        
+        .custom-query-result {
+            margin-top: 1.5rem;
+        }
+        
+        .result-header {
+            margin-bottom: 0.5rem;
+            color: #2c3e50;
+        }
+        
+        .custom-query-output {
+            background: #f8f9fa;
+            border: 1px solid #e1e5e9;
+            border-radius: 8px;
+            padding: 1rem;
+            font-family: 'Courier New', monospace;
+            font-size: 14px;
+            line-height: 1.5;
+            white-space: pre-wrap;
+            word-break: break-all;
+            min-height: 50px;
+            max-height: 300px;
+            overflow-y: auto;
+        }
+        
+        .query-actions {
+            display: flex;
+            gap: 0.5rem;
+        }
+        
+        .btn {
+            padding: 0.5rem 1rem;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 0.85rem;
+            font-weight: 500;
+            transition: all 0.3s ease;
+        }
+        
+        .btn-primary {
+            background: #667eea;
+            color: white;
+        }
+        
+        .btn-primary:hover {
+            background: #5a6fd8;
+        }
+        
+        .btn-secondary {
+            background: #6c757d;
+            color: white;
+        }
+        
+        .btn-secondary:hover {
+            background: #5a6268;
+        }
+        
+        .query-body {
+            padding: 1.5rem;
+        }
+        
+        .query-description {
+            color: #666;
+            margin-bottom: 1rem;
+            line-height: 1.5;
+        }
+        
+        .migration-info {
+            background: #e3f2fd;
+            border: 1px solid #bbdefb;
+            border-radius: 5px;
+            padding: 1rem;
+            margin-bottom: 1rem;
+        }
+        
+        .migration-info strong {
+            color: #1976d2;
+        }
+        
+        .query-code {
+            background: #2d3748;
+            color: #e2e8f0;
+            padding: 1.5rem;
+            border-radius: 8px;
+            font-family: 'Courier New', monospace;
+            font-size: 0.9rem;
+            line-height: 1.5;
+            overflow-x: auto;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+        }
+        
+        .query-code.oneliner {
+            white-space: nowrap;
+            overflow-x: auto;
+        }
+        
+        .query-code.no-comments {
+            /* Additional styling for comment-free view */
+        }
+        
+        .copy-btn {
+            position: relative;
+        }
+        
+        .copy-tooltip {
+            position: absolute;
+            top: -30px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: #333;
+            color: white;
+            padding: 0.25rem 0.5rem;
+            border-radius: 3px;
+            font-size: 0.75rem;
+            opacity: 0;
+            transition: opacity 0.3s ease;
+        }
+        
+        .copy-tooltip.show {
+            opacity: 1;
+        }
+        
+        .stats {
+            background: white;
+            padding: 1.5rem;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+            margin-bottom: 2rem;
+        }
+        
+        .stats h3 {
+            margin-bottom: 1rem;
+            color: #333;
+        }
+        
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 1rem;
+        }
+        
+        .stat-item {
+            text-align: center;
+            padding: 1rem;
+            background: #f8f9fa;
+            border-radius: 8px;
+        }
+        
+        .stat-number {
+            font-size: 2rem;
+            font-weight: bold;
+            color: #667eea;
+        }
+        
+        .stat-label {
+            color: #666;
+            font-size: 0.9rem;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>📊 SQL Documentation</h1>
+        <form method="post" action="/sql-docs/logout" style="display: inline;">
+            <input type="hidden" name="session_token" value="{{ session_token }}">
+            <button type="submit" class="logout-btn">Logout</button>
+        </form>
+    </div>
+    
+    <div class="container">
+        <div class="stats">
+            <h3>📈 Documentation Statistics</h3>
+            <div class="stats-grid">
+                <div class="stat-item">
+                    <div class="stat-number">{{ sql_queries|length }}</div>
+                    <div class="stat-label">Categories</div>
+                </div>
+                <div class="stat-item">
+                    <div class="stat-number">{{ sql_queries.values() | map(attribute='queries') | map('length') | sum }}</div>
+                    <div class="stat-label">Total Queries</div>
+                </div>
+                <div class="stat-item">
+                    <div class="stat-number">6</div>
+                    <div class="stat-label">Migration Scripts</div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Custom Query Field -->
+        <div class="custom-query-section">
+            <div class="custom-query-header">
+                <h3>🔧 Custom Query Converter</h3>
+                <p>Paste your SQL query below to convert it to a one-liner and remove inline comments</p>
+            </div>
+            <div class="custom-query-body">
+                <textarea 
+                    id="customQueryInput" 
+                    placeholder="Paste your SQL query here..."
+                    class="custom-query-textarea"
+                ></textarea>
+                <div class="custom-query-actions">
+                    <button class="btn btn-primary" onclick="convertCustomQuery()">
+                        <span id="custom-convert-text">Convert to One Line</span>
+                    </button>
+                    <button class="btn btn-secondary" onclick="removeInlineComments()">
+                        <span id="custom-comments-text">Remove Inline Comments</span>
+                    </button>
+                    <button class="btn btn-success" onclick="copyCustomQuery()">
+                        <span id="custom-copy-text">Copy</span>
+                        <div class="copy-tooltip" id="custom-tooltip">Copied!</div>
+                    </button>
+                    <button class="btn btn-warning" onclick="clearCustomQuery()">
+                        Clear
+                    </button>
+                </div>
+                <div class="custom-query-result">
+                    <div class="result-header">
+                        <strong>Result:</strong>
+                    </div>
+                    <div id="customQueryResult" class="custom-query-output"></div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="category-tabs">
+            {% for category_key, category in sql_queries.items() %}
+            <div class="tab {% if loop.first %}active{% endif %}" onclick="showCategory('{{ category_key }}')">
+                {{ category.title }}
+            </div>
+            {% endfor %}
+        </div>
+        
+        {% for category_key, category in sql_queries.items() %}
+        <div class="category-content {% if loop.first %}active{% endif %}" id="category-{{ category_key }}">
+            <div class="category-header">
+                <div class="category-title">{{ category.title }}</div>
+                <div class="category-description">{{ category.description }}</div>
+            </div>
+            
+            <div class="queries-list">
+                {% for query in category.queries %}
+                <div class="query-item">
+                    <div class="query-header">
+                        <div class="query-title-section">
+                            <div class="query-title">{{ query.name }}</div>
+                            {% if query.created_at %}
+                            <div class="query-dates">
+                                <span class="created-date">Created: {{ query.created_at }}</span>
+                                {% if query.updated_at and query.updated_at != query.created_at %}
+                                <span class="updated-date">Updated: {{ query.updated_at }}</span>
+                                {% endif %}
+                            </div>
+                            {% endif %}
+                        </div>
+                        <div class="query-actions">
+                            <button class="btn btn-secondary" onclick="toggleComments('{{ category_key }}-{{ loop.index }}')">
+                                <span id="comments-text-{{ category_key }}-{{ loop.index }}">Hide Comments</span>
+                            </button>
+                            <button class="btn btn-secondary" onclick="toggleOneliner('{{ category_key }}-{{ loop.index }}')">
+                                <span id="toggle-text-{{ category_key }}-{{ loop.index }}">One Line</span>
+                            </button>
+                            <button class="btn btn-primary copy-btn" onclick="copyQuery('{{ category_key }}-{{ loop.index }}')">
+                                <span id="copy-text-{{ category_key }}-{{ loop.index }}">Copy</span>
+                                <div class="copy-tooltip" id="tooltip-{{ category_key }}-{{ loop.index }}">Copied!</div>
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <div class="query-body">
+                        <div class="query-description">{{ query.description }}</div>
+                        
+                        <div class="migration-info">
+                            <strong>Migration Impact:</strong> {{ query.migration }}
+                        </div>
+                        
+                        <div class="query-code" id="query-{{ category_key }}-{{ loop.index }}">
+{{ query.query }}
+                        </div>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+    
+    <script>
+        function showCategory(categoryKey) {
+            // Hide all categories
+            document.querySelectorAll('.category-content').forEach(content => {
+                content.classList.remove('active');
+            });
+            
+            // Remove active class from all tabs
+            document.querySelectorAll('.tab').forEach(tab => {
+                tab.classList.remove('active');
+            });
+            
+            // Show selected category
+            document.getElementById('category-' + categoryKey).classList.add('active');
+            
+            // Add active class to clicked tab
+            event.target.classList.add('active');
+        }
+        
+        function toggleComments(queryId) {
+            const queryElement = document.getElementById('query-' + queryId);
+            const commentsButton = document.getElementById('comments-text-' + queryId);
+            
+            if (queryElement.classList.contains('no-comments')) {
+                // Show comments
+                queryElement.classList.remove('no-comments');
+                commentsButton.textContent = 'Hide Comments';
+                // Restore original content
+                queryElement.innerHTML = queryElement.getAttribute('data-original-content');
+            } else {
+                // Hide comments
+                if (!queryElement.hasAttribute('data-original-content')) {
+                    queryElement.setAttribute('data-original-content', queryElement.innerHTML);
+                }
+                commentsButton.textContent = 'Show Comments';
+                queryElement.classList.add('no-comments');
+                
+                // Remove SQL comments (lines starting with --)
+                let content = queryElement.innerHTML;
+                content = content.replace(/^--.*$/gm, ''); // Remove lines starting with --
+                content = content.replace(/\/\*[\s\S]*?\*\//g, ''); // Remove /* */ comments
+                content = content.replace(/\n\s*\n\s*\n/g, '\n\n'); // Clean up multiple newlines
+                queryElement.innerHTML = content;
+            }
+        }
+        
+        function toggleOneliner(queryId) {
+            const queryElement = document.getElementById('query-' + queryId);
+            const toggleButton = document.getElementById('toggle-text-' + queryId);
+            
+            if (queryElement.classList.contains('oneliner')) {
+                queryElement.classList.remove('oneliner');
+                toggleButton.textContent = 'One Line';
+            } else {
+                queryElement.classList.add('oneliner');
+                toggleButton.textContent = 'Multi Line';
+            }
+        }
+        
+        function copyQuery(queryId) {
+            const queryElement = document.getElementById('query-' + queryId);
+            const tooltip = document.getElementById('tooltip-' + queryId);
+            
+            // Get the text content
+            let queryText = queryElement.textContent;
+            
+            // If it's in oneliner mode, convert to single line
+            if (queryElement.classList.contains('oneliner')) {
+                queryText = queryText.replace(/\s+/g, ' ').trim();
+            }
+            
+            // Copy to clipboard
+            navigator.clipboard.writeText(queryText).then(() => {
+                // Show tooltip
+                tooltip.classList.add('show');
+                setTimeout(() => {
+                    tooltip.classList.remove('show');
+                }, 2000);
+            });
+        }
+        
+        // Custom Query Functions
+        function convertCustomQuery() {
+            const input = document.getElementById('customQueryInput');
+            const result = document.getElementById('customQueryResult');
+            const convertButton = document.getElementById('custom-convert-text');
+            
+            if (!input.value.trim()) {
+                alert('Please enter a SQL query first');
+                return;
+            }
+            
+            // Convert to one line
+            let oneLineQuery = input.value
+                .replace(/\s+/g, ' ')  // Replace multiple spaces with single space
+                .replace(/\n/g, ' ')   // Replace newlines with spaces
+                .trim();
+            
+            result.textContent = oneLineQuery;
+            
+            // Toggle button text
+            if (convertButton.textContent === 'Convert to One Line') {
+                convertButton.textContent = 'Convert to Multi Line';
+                result.style.whiteSpace = 'nowrap';
+                result.style.overflowX = 'auto';
+            } else {
+                convertButton.textContent = 'Convert to One Line';
+                result.style.whiteSpace = 'pre-wrap';
+                result.style.overflowX = 'visible';
+            }
+        }
+        
+        function removeInlineComments() {
+            const input = document.getElementById('customQueryInput');
+            const result = document.getElementById('customQueryResult');
+            const commentsButton = document.getElementById('custom-comments-text');
+            
+            if (!input.value.trim()) {
+                alert('Please enter a SQL query first');
+                return;
+            }
+            
+            let cleanedQuery = input.value;
+            
+            if (commentsButton.textContent === 'Remove Inline Comments') {
+                // Remove inline comments (-- comments at end of lines)
+                cleanedQuery = cleanedQuery.replace(/\s*--.*$/gm, '');
+                // Remove /* */ comments
+                cleanedQuery = cleanedQuery.replace(/\/\*[\s\S]*?\*\//g, '');
+                // Clean up extra whitespace
+                cleanedQuery = cleanedQuery.replace(/\n\s*\n/g, '\n');
+                cleanedQuery = cleanedQuery.trim();
+                
+                result.textContent = cleanedQuery;
+                commentsButton.textContent = 'Restore Comments';
+            } else {
+                // Restore original
+                result.textContent = input.value;
+                commentsButton.textContent = 'Remove Inline Comments';
+            }
+        }
+        
+        function copyCustomQuery() {
+            const result = document.getElementById('customQueryResult');
+            const tooltip = document.getElementById('custom-tooltip');
+            
+            if (!result.textContent.trim()) {
+                alert('No query to copy. Please convert or process a query first.');
+                return;
+            }
+            
+            navigator.clipboard.writeText(result.textContent).then(() => {
+                tooltip.classList.add('show');
+                setTimeout(() => {
+                    tooltip.classList.remove('show');
+                }, 2000);
+            });
+        }
+        
+        function clearCustomQuery() {
+            document.getElementById('customQueryInput').value = '';
+            document.getElementById('customQueryResult').textContent = '';
+            document.getElementById('custom-convert-text').textContent = 'Convert to One Line';
+            document.getElementById('custom-comments-text').textContent = 'Remove Inline Comments';
+        }
+        
+        // Initialize first category as active
+        document.addEventListener('DOMContentLoaded', function() {
+            const firstTab = document.querySelector('.tab');
+            if (firstTab) {
+                firstTab.click();
+            }
+        });
+    </script>
+</body>
+</html>

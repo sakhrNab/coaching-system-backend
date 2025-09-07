@@ -29,7 +29,33 @@ class GoalCreate(BaseModel):
 
 # Add these endpoints to your main FastAPI app
 
-@router.post("/coaches/{coach_id}/import-clients")
+@router.post("/coaches/{coach_id}/import-clients",
+             summary="Import Clients from JSON",
+             description="""
+             Import multiple clients from JSON data for a coach.
+             
+             This endpoint allows coaches to bulk import clients from external sources
+             or backup files. The import data should contain an array of client objects
+             with the required fields.
+             
+             **Features:**
+             - Bulk client import
+             - Data validation
+             - Duplicate phone number handling
+             - Category assignment
+             
+             **Use Cases:**
+             - Restore from backup
+             - Migrate from other systems
+             - Bulk client onboarding
+             """,
+             tags=["Client CRUD"],
+             responses={
+                 200: {"description": "Clients imported successfully"},
+                 400: {"description": "Invalid import data"},
+                 404: {"description": "Coach not found"},
+                 500: {"description": "Database error"}
+             })
 async def import_clients_json(coach_id: str, import_data: ImportData):
     """Import clients from JSON data"""
     try:
@@ -107,7 +133,33 @@ async def import_clients_json(coach_id: str, import_data: ImportData):
         raise HTTPException(status_code=500, detail=f"Failed to import clients: {str(e)}")
 
 
-@router.post("/coaches/{coach_id}/templates")
+@router.post("/coaches/{coach_id}/templates",
+             summary="Create Message Template",
+             description="""
+             Create a custom message template for a coach.
+             
+             This endpoint allows coaches to create personalized message templates
+             for different types of communications (celebration, accountability, etc.).
+             
+             **Features:**
+             - Custom template creation
+             - Template categorization
+             - Language code support
+             - WhatsApp template integration
+             
+             **Use Cases:**
+             - Personalized messaging
+             - Brand consistency
+             - Multi-language support
+             - Template management
+             """,
+             tags=["Message Templates"],
+             responses={
+                 200: {"description": "Template created successfully"},
+                 400: {"description": "Invalid template data"},
+                 404: {"description": "Coach not found"},
+                 500: {"description": "Database error"}
+             })
 async def create_template(coach_id: str, template_data: TemplateCreate):
     """Create a custom message template for a coach"""
     try:
@@ -151,24 +203,76 @@ async def create_template(coach_id: str, template_data: TemplateCreate):
         logger.error(f"Create template error: {e}")
         raise HTTPException(status_code=500, detail=f"Failed to create template: {str(e)}")
 
-@router.get("/coaches/{coach_id}/templates")
-async def get_message_templates(coach_id: str, message_type: str = None):
+@router.get("/coaches/{coach_id}/templates",
+            summary="Get Message Templates",
+            description="""
+            Retrieve message templates for a coach.
+            
+            **Template Types:**
+            - `celebration`: Positive reinforcement messages (templates 6-10)
+            - `accountability`: Goal tracking messages (templates 1-5)
+            - `null`: All templates (default)
+            
+            **Template Information:**
+            - Template content and metadata
+            - WhatsApp template names
+            - Language codes
+            - Default vs custom templates
+            
+            **Use Cases:**
+            - Display available templates in UI
+            - Filter templates by type
+            - Show template details for selection
+            """,
+            tags=["Message Templates"],
+            responses={
+                200: {
+                    "description": "Templates retrieved successfully",
+                    "content": {
+                        "application/json": {
+                            "example": [
+                                {
+                                    "id": "550e8400-e29b-41d4-a716-446655440000",
+                                    "message_type": "celebration",
+                                    "content": "🎉 What are we celebrating today?",
+                                    "is_default": True,
+                                    "whatsapp_template_name": "celebration_message_6",
+                                    "language_code": "en"
+                                }
+                            ]
+                        }
+                    }
+                },
+                404: {
+                    "description": "Coach not found",
+                    "content": {
+                        "application/json": {
+                            "example": {
+                                "detail": "Coach not found"
+                            }
+                        }
+                    }
+                }
+            })
+async def get_message_templates(coach_id: str, type: str = None):
     """Get message templates for coach"""
     try:
         async with db.pool.acquire() as conn:
-            query = """SELECT id, message_type, content, is_default, is_active
-                       FROM message_templates 
-                       WHERE (coach_id = $1 OR coach_id IS NULL) AND is_active = true"""
-            
-            params = [coach_id]
-            
-            if message_type:
-                query += " AND message_type = $2"
-                params.append(message_type)
-            
-            query += " ORDER BY is_default DESC, created_at DESC"
-            
-            templates = await conn.fetch(query, *params)
+            if type:
+                query = """SELECT id, message_type, content, is_default, is_active
+                           FROM message_templates 
+                           WHERE (coach_id = $1 OR coach_id IS NULL) 
+                           AND is_active = true 
+                           AND message_type = $2
+                           ORDER BY is_default DESC, created_at DESC"""
+                templates = await conn.fetch(query, coach_id, type)
+            else:
+                query = """SELECT id, message_type, content, is_default, is_active
+                           FROM message_templates 
+                           WHERE (coach_id = $1 OR coach_id IS NULL) 
+                           AND is_active = true
+                           ORDER BY is_default DESC, created_at DESC"""
+                templates = await conn.fetch(query, coach_id)
             
             return [
                 {
@@ -183,7 +287,33 @@ async def get_message_templates(coach_id: str, message_type: str = None):
         logger.error(f"Get templates error: {e}")
         raise HTTPException(status_code=500, detail="Failed to fetch templates")
 
-@router.put("/templates/{template_id}/language-code")
+@router.put("/templates/{template_id}/language-code",
+            summary="Update Template Language Code",
+            description="""
+            Update the language code for a message template.
+            
+            This endpoint allows coaches to change the language code of their
+            message templates to support different languages and regions.
+            
+            **Features:**
+            - Language code validation
+            - Template ownership verification
+            - WhatsApp template compatibility
+            - Multi-language support
+            
+            **Use Cases:**
+            - International coaching
+            - Multi-language templates
+            - Regional customization
+            - Template localization
+            """,
+            tags=["Message Templates"],
+            responses={
+                200: {"description": "Language code updated successfully"},
+                400: {"description": "Invalid language code"},
+                404: {"description": "Template not found"},
+                500: {"description": "Database error"}
+            })
 async def update_template_language_code(template_id: str, language_code: str):
     """Update the language code for a template"""
     try:
@@ -212,7 +342,33 @@ async def update_template_language_code(template_id: str, language_code: str):
         logger.error(f"Update language code error: {e}")
         raise HTTPException(status_code=500, detail="Failed to update language code")
 
-@router.get("/templates/{template_id}")
+@router.get("/templates/{template_id}",
+            summary="Get Template Details",
+            description="""
+            Get detailed information about a specific message template.
+            
+            This endpoint retrieves comprehensive details about a message template
+            including its content, language code, WhatsApp integration status,
+            and usage statistics.
+            
+            **Features:**
+            - Complete template information
+            - Language code details
+            - WhatsApp template status
+            - Usage analytics
+            
+            **Use Cases:**
+            - Template editing
+            - Template management
+            - Usage analysis
+            - Template debugging
+            """,
+            tags=["Message Templates"],
+            responses={
+                200: {"description": "Template details retrieved successfully"},
+                404: {"description": "Template not found"},
+                500: {"description": "Database error"}
+            })
 async def get_template_details(template_id: str):
     """Get detailed information about a template including language code"""
     try:
@@ -245,7 +401,34 @@ async def get_template_details(template_id: str):
         logger.error(f"Get template details error: {e}")
         raise HTTPException(status_code=500, detail="Failed to fetch template details")
 
-@router.get("/coaches/{coach_id}/analytics")
+@router.get("/coaches/{coach_id}/analytics",
+            summary="Get Message Analytics",
+            description="""
+            Get comprehensive message analytics for a coach.
+            
+            This endpoint provides detailed analytics about message performance,
+            delivery rates, engagement metrics, and usage patterns for a coach's
+            messaging activities.
+            
+            **Features:**
+            - Message delivery statistics
+            - Engagement metrics
+            - Performance trends
+            - Client interaction analysis
+            - Time-based filtering
+            
+            **Use Cases:**
+            - Performance monitoring
+            - Strategy optimization
+            - Client engagement analysis
+            - Reporting and insights
+            """,
+            tags=["Analytics"],
+            responses={
+                200: {"description": "Analytics data retrieved successfully"},
+                404: {"description": "Coach not found"},
+                500: {"description": "Database error"}
+            })
 async def get_message_analytics(coach_id: str, days: int = 30):
     """Get message analytics for coach"""
     try:
@@ -290,7 +473,34 @@ async def get_message_analytics(coach_id: str, days: int = 30):
         logger.error(f"Analytics error: {e}")
         raise HTTPException(status_code=500, detail="Failed to fetch analytics")
 
-@router.get("/coaches/{coach_id}/clients/{client_id}/history")
+@router.get("/coaches/{coach_id}/clients/{client_id}/history",
+            summary="Get Client Message History",
+            description="""
+            Get message history for a specific client.
+            
+            This endpoint retrieves the complete message history between a coach
+            and a specific client, including sent messages, received responses,
+            and delivery status information.
+            
+            **Features:**
+            - Complete message history
+            - Message status tracking
+            - Timestamp information
+            - Pagination support
+            - Message type filtering
+            
+            **Use Cases:**
+            - Client communication review
+            - Progress tracking
+            - Message debugging
+            - Relationship analysis
+            """,
+            tags=["Client CRUD"],
+            responses={
+                200: {"description": "Message history retrieved successfully"},
+                404: {"description": "Client not found"},
+                500: {"description": "Database error"}
+            })
 async def get_client_message_history(coach_id: str, client_id: str, limit: int = 50):
     """Get message history for specific client"""
     try:
@@ -325,7 +535,34 @@ async def get_client_message_history(coach_id: str, client_id: str, limit: int =
         logger.error(f"Get history error: {e}")
         raise HTTPException(status_code=500, detail="Failed to fetch history")
 
-@router.put("/coaches/{coach_id}/clients/{client_id}")
+@router.put("/coaches/{coach_id}/clients/{client_id}",
+            summary="Update Client Information",
+            description="""
+            Update client information and details.
+            
+            This endpoint allows coaches to modify client information including
+            personal details, contact information, categories, and preferences.
+            
+            **Features:**
+            - Client information updates
+            - Category management
+            - Contact details modification
+            - Preference updates
+            - Data validation
+            
+            **Use Cases:**
+            - Client profile management
+            - Information updates
+            - Category changes
+            - Contact maintenance
+            """,
+            tags=["Client CRUD"],
+            responses={
+                200: {"description": "Client updated successfully"},
+                400: {"description": "Invalid client data"},
+                404: {"description": "Client not found"},
+                500: {"description": "Database error"}
+            })
 async def update_client(coach_id: str, client_id: str, client_data: dict):
     """Update client information"""
     try:
@@ -368,7 +605,32 @@ async def update_client(coach_id: str, client_id: str, client_data: dict):
         logger.error(f"Update client error: {e}")
         raise HTTPException(status_code=500, detail="Failed to update client")
 
-@router.delete("/coaches/{coach_id}/clients/{client_id}")
+@router.delete("/coaches/{coach_id}/clients/{client_id}",
+               summary="Delete Client",
+               description="""
+               Delete (deactivate) a client from the coach's client list.
+               
+               This endpoint soft-deletes a client by marking them as inactive
+               rather than permanently removing their data from the database.
+               
+               **Features:**
+               - Soft delete (data preservation)
+               - Client verification
+               - Data retention
+               - Audit trail
+               
+               **Use Cases:**
+               - Client removal
+               - Data cleanup
+               - Privacy compliance
+               - Account management
+               """,
+               tags=["Client CRUD"],
+               responses={
+                   200: {"description": "Client deleted successfully"},
+                   404: {"description": "Client not found"},
+                   500: {"description": "Database error"}
+               })
 async def delete_client(coach_id: str, client_id: str):
     """Delete (deactivate) client"""
     try:
@@ -384,46 +646,34 @@ async def delete_client(coach_id: str, client_id: str):
         logger.error(f"Delete client error: {e}")
         raise HTTPException(status_code=500, detail="Failed to delete client")
 
-@router.get("/coaches/{coach_id}/scheduled-messages")
-async def get_scheduled_messages(coach_id: str):
-    """Get all scheduled messages for coach"""
-    try:
-        async with db.pool.acquire() as conn:
-            messages = await conn.fetch(
-                """SELECT 
-                    sm.id,
-                    sm.message_type,
-                    sm.content,
-                    sm.schedule_type,
-                    sm.scheduled_time,
-                    sm.status,
-                    c.name as client_name,
-                    c.phone_number
-                FROM scheduled_messages sm
-                JOIN clients c ON sm.client_id = c.id
-                WHERE sm.coach_id = $1 AND sm.status IN ('scheduled', 'pending')
-                ORDER BY sm.scheduled_time ASC""",
-                coach_id
-            )
-            
-            return [
-                {
-                    "id": str(msg['id']),
-                    "message_type": msg['message_type'],
-                    "content": msg['content'],
-                    "schedule_type": msg['schedule_type'],
-                    "scheduled_time": msg['scheduled_time'].isoformat() if msg['scheduled_time'] else None,
-                    "status": msg['status'],
-                    "client_name": msg['client_name'],
-                    "client_phone": msg['phone_number']
-                } for msg in messages
-            ]
-    
-    except Exception as e:
-        logger.error(f"Get scheduled messages error: {e}")
-        raise HTTPException(status_code=500, detail="Failed to fetch scheduled messages")
 
-@router.delete("/scheduled-messages/{message_id}")
+@router.delete("/scheduled-messages/{message_id}",
+               summary="Cancel Scheduled Message",
+               description="""
+               Cancel a scheduled message before it's sent.
+               
+               This endpoint allows coaches to cancel scheduled messages that haven't
+               been sent yet, preventing them from being delivered to clients.
+               
+               **Features:**
+               - Message cancellation
+               - Status validation
+               - Immediate effect
+               - Audit logging
+               
+               **Use Cases:**
+               - Schedule changes
+               - Message corrections
+               - Emergency cancellations
+               - Schedule management
+               """,
+               tags=["Message Scheduling"],
+               responses={
+                   200: {"description": "Message cancelled successfully"},
+                   404: {"description": "Message not found"},
+                   400: {"description": "Message already sent"},
+                   500: {"description": "Database error"}
+               })
 async def cancel_scheduled_message(message_id: str):
     """Cancel a scheduled message"""
     try:
@@ -439,7 +689,33 @@ async def cancel_scheduled_message(message_id: str):
         logger.error(f"Cancel message error: {e}")
         raise HTTPException(status_code=500, detail="Failed to cancel message")
 
-@router.get("/coaches/{coach_id}/goals")
+@router.get("/coaches/{coach_id}/goals",
+            summary="Get Client Goals",
+            description="""
+            Get all goals for a coach's clients.
+            
+            This endpoint retrieves all goals set for clients under a specific coach,
+            including goal details, progress, and status information.
+            
+            **Features:**
+            - Complete goals overview
+            - Progress tracking
+            - Status monitoring
+            - Client goal management
+            - Goal categorization
+            
+            **Use Cases:**
+            - Goal monitoring
+            - Progress tracking
+            - Client development
+            - Performance analysis
+            """,
+            tags=["Goal Management"],
+            responses={
+                200: {"description": "Goals retrieved successfully"},
+                404: {"description": "Coach not found"},
+                500: {"description": "Database error"}
+            })
 async def get_client_goals(coach_id: str):
     """Get goals for all coach's clients"""
     try:
@@ -477,7 +753,34 @@ async def get_client_goals(coach_id: str):
         logger.error(f"Get goals error: {e}")
         raise HTTPException(status_code=500, detail="Failed to fetch goals")
 
-@router.post("/coaches/{coach_id}/clients/{client_id}/goals")
+@router.post("/coaches/{coach_id}/clients/{client_id}/goals",
+             summary="Create Client Goal",
+             description="""
+             Create a new goal for a specific client.
+             
+             This endpoint allows coaches to set new goals for their clients,
+             including goal details, target dates, and progress tracking.
+             
+             **Features:**
+             - Goal creation
+             - Target date setting
+             - Progress tracking setup
+             - Goal categorization
+             - Client verification
+             
+             **Use Cases:**
+             - Goal setting
+             - Client development
+             - Progress planning
+             - Achievement tracking
+             """,
+             tags=["Goal Management"],
+             responses={
+                 200: {"description": "Goal created successfully"},
+                 400: {"description": "Invalid goal data"},
+                 404: {"description": "Client not found"},
+                 500: {"description": "Database error"}
+             })
 async def create_client_goal(coach_id: str, client_id: str, goal_data: GoalCreate):
     """Create a new goal for client"""
     try:
@@ -520,8 +823,99 @@ async def create_client_goal(coach_id: str, client_id: str, goal_data: GoalCreat
         logger.error(f"Create goal error: {e}")
         raise HTTPException(status_code=500, detail="Failed to create goal")
 
-@router.get("/coaches/{coach_id}/stats")
-async def get_coach_stats(coach_id: str):
+@router.get("/coaches/{coach_id}/scheduled-messages",
+            summary="Get Scheduled Messages",
+            description="""
+            Get all scheduled messages for a coach.
+            
+            This endpoint retrieves all scheduled messages (pending, sent, failed)
+            for a specific coach, including their status, timing, and content.
+            
+            **Features:**
+            - Complete scheduled message list
+            - Status tracking
+            - Timing information
+            - Message content preview
+            - Filtering options
+            
+            **Use Cases:**
+            - Schedule management
+            - Message monitoring
+            - Status tracking
+            - Schedule optimization
+            """,
+            tags=["Message Scheduling"],
+            responses={
+                200: {"description": "Scheduled messages retrieved successfully"},
+                404: {"description": "Coach not found"},
+                500: {"description": "Database error"}
+            })
+async def get_coach_scheduled_messages(coach_id: str):
+    """Get all scheduled messages for coach"""
+    try:
+        async with db.pool.acquire() as conn:
+            messages = await conn.fetch(
+                """SELECT 
+                    sm.id,
+                    sm.message_type,
+                    sm.content,
+                    sm.schedule_type,
+                    sm.scheduled_time,
+                    sm.status,
+                    c.name as client_name,
+                    c.phone_number
+                FROM scheduled_messages sm
+                JOIN clients c ON sm.client_id = c.id
+                WHERE sm.coach_id = $1 AND sm.status IN ('scheduled', 'pending')
+                ORDER BY sm.scheduled_time ASC""",
+                coach_id
+            )
+            
+            return [
+                {
+                    "id": str(msg['id']),
+                    "message_type": msg['message_type'],
+                    "content": msg['content'],
+                    "schedule_type": msg['schedule_type'],
+                    "scheduled_time": msg['scheduled_time'].isoformat() if msg['scheduled_time'] else None,
+                    "status": msg['status'],
+                    "client_name": msg['client_name'],
+                    "client_phone": msg['phone_number']
+                } for msg in messages
+            ]
+    
+    except Exception as e:
+        logger.error(f"Get scheduled messages error: {e}")
+        raise HTTPException(status_code=500, detail="Failed to fetch scheduled messages")
+
+@router.get("/coaches/{coach_id}/stats",
+            summary="Get Coach Statistics",
+            description="""
+            Get comprehensive statistics for a coach's dashboard.
+            
+            This endpoint provides detailed statistics about a coach's performance,
+            client metrics, message activity, and system usage.
+            
+            **Features:**
+            - Performance metrics
+            - Client statistics
+            - Message activity
+            - System usage
+            - Trend analysis
+            
+            **Use Cases:**
+            - Dashboard display
+            - Performance monitoring
+            - Analytics reporting
+            - System optimization
+            """,
+            tags=["Analytics"],
+            responses={
+                200: {"description": "Statistics retrieved successfully"},
+                404: {"description": "Coach not found"},
+                500: {"description": "Database error"}
+            })
+async def get_coach_analytics_stats(coach_id: str):
     """Get comprehensive stats for coach dashboard"""
     try:
         async with db.pool.acquire() as conn:
@@ -570,7 +964,34 @@ async def get_coach_stats(coach_id: str):
         raise HTTPException(status_code=500, detail="Failed to fetch stats")
 
 # Enhanced Google Contacts integration
-@router.post("/coaches/{coach_id}/import-google-contacts")
+@router.post("/coaches/{coach_id}/import-google-contacts",
+             summary="Import Google Contacts",
+             description="""
+             Import contacts from Google Contacts for a coach.
+             
+             This endpoint allows coaches to import their Google Contacts as clients,
+             automatically creating client profiles with contact information.
+             
+             **Features:**
+             - Google Contacts integration
+             - Automatic client creation
+             - Contact data mapping
+             - Duplicate handling
+             - Bulk import processing
+             
+             **Use Cases:**
+             - Contact migration
+             - Bulk client onboarding
+             - Contact synchronization
+             - Data import
+             """,
+             tags=["Client CRUD"],
+             responses={
+                 200: {"description": "Contacts imported successfully"},
+                 400: {"description": "Invalid contact data"},
+                 404: {"description": "Coach not found"},
+                 500: {"description": "Database error"}
+             })
 async def import_google_contacts(coach_id: str, google_data: GoogleContactsImport):
     """Import contacts from Google"""
     try:
@@ -600,7 +1021,34 @@ async def import_google_contacts(coach_id: str, google_data: GoogleContactsImpor
         raise HTTPException(status_code=500, detail=f"Failed to import Google contacts: {str(e)}")
 
 # Bulk operations
-@router.post("/coaches/{coach_id}/bulk-message")
+@router.post("/coaches/{coach_id}/bulk-message",
+             summary="Send Bulk Message",
+             description="""
+             Send a message to multiple clients at once.
+             
+             This endpoint allows coaches to send the same message to multiple
+             clients simultaneously, with individual delivery tracking.
+             
+             **Features:**
+             - Bulk message sending
+             - Individual delivery tracking
+             - Client selection
+             - Message customization
+             - Delivery status monitoring
+             
+             **Use Cases:**
+             - Mass communications
+             - Announcements
+             - Group messaging
+             - Campaign management
+             """,
+             tags=["Message Sending"],
+             responses={
+                 200: {"description": "Bulk message sent successfully"},
+                 400: {"description": "Invalid message data"},
+                 404: {"description": "Coach not found"},
+                 500: {"description": "Database error"}
+             })
 async def send_bulk_message(coach_id: str, bulk_data: dict):
     """Send message to multiple clients at once"""
     try:
@@ -635,11 +1083,32 @@ async def send_bulk_message(coach_id: str, bulk_data: dict):
         logger.error(f"Bulk message error: {e}")
         raise HTTPException(status_code=500, detail="Failed to send bulk message")
 
-
-
-# Health check endpoint
-@router.get("/health")
-async def health_check():
+@router.get("/health",
+            summary="Health Check",
+            description="""
+            Check the health status of the application.
+            
+            This endpoint provides a basic health check to verify that the
+            application and database are running properly.
+            
+            **Features:**
+            - Application status
+            - Database connectivity
+            - Basic system health
+            - Quick status verification
+            
+            **Use Cases:**
+            - System monitoring
+            - Load balancer checks
+            - Service discovery
+            - Health verification
+            """,
+            tags=["System Health"],
+            responses={
+                200: {"description": "System is healthy"},
+                500: {"description": "System error"}
+            })
+async def detailed_health_check():
     """Health check endpoint"""
     try:
         async with db.pool.acquire() as conn:
@@ -658,8 +1127,34 @@ async def health_check():
             "error": str(e)
         }
 
+# Health check endpoint
+
 # Configuration endpoint
-@router.get("/config")
+@router.get("/config",
+            summary="Get App Configuration",
+            description="""
+            Get application configuration for the frontend.
+            
+            This endpoint provides configuration settings and feature flags
+            that the frontend needs to properly configure the application.
+            
+            **Features:**
+            - Feature flags
+            - Configuration settings
+            - Environment variables
+            - Frontend configuration
+            
+            **Use Cases:**
+            - Frontend initialization
+            - Feature toggling
+            - Configuration management
+            - Environment setup
+            """,
+            tags=["System Configuration"],
+            responses={
+                200: {"description": "Configuration retrieved successfully"},
+                500: {"description": "Configuration error"}
+            })
 async def get_app_config():
     """Get app configuration for frontend"""
     return {

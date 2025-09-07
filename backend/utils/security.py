@@ -209,12 +209,66 @@ app.state.limiter = limiter
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
 # Apply rate limits to endpoints
-@app.post("/register")
+@app.post("/register",
+          summary="Register Coach (Rate Limited)",
+          description="""
+          Register a new coach with rate limiting applied.
+          
+          This is a rate-limited version of the coach registration endpoint
+          to prevent abuse and ensure system stability.
+          
+          **Features:**
+          - Rate limiting protection
+          - Coach registration
+          - Input validation
+          - Abuse prevention
+          - System stability
+          
+          **Use Cases:**
+          - Coach registration
+          - Rate-limited access
+          - System protection
+          - Abuse prevention
+          """,
+          tags=["Coach Management"],
+          responses={
+              200: {"description": "Coach registered successfully"},
+              400: {"description": "Invalid registration data"},
+              429: {"description": "Rate limit exceeded"},
+              500: {"description": "Registration error"}
+          })
 @limiter.limit(RATE_LIMITS["auth"])
 async def register_coach_with_limit(request: Request, registration: CoachRegistration):
     return await register_coach(registration)
 
-@app.post("/webhook/whatsapp")
+@app.post("/webhook/whatsapp",
+          summary="WhatsApp Webhook (Rate Limited)",
+          description="""
+          Handle WhatsApp webhook events with rate limiting applied.
+          
+          This is a rate-limited version of the WhatsApp webhook endpoint
+          to prevent abuse and ensure system stability.
+          
+          **Features:**
+          - Rate limiting protection
+          - Webhook event handling
+          - Message processing
+          - Abuse prevention
+          - System stability
+          
+          **Use Cases:**
+          - Webhook processing
+          - Rate-limited access
+          - System protection
+          - Abuse prevention
+          """,
+          tags=["WhatsApp Webhooks"],
+          responses={
+              200: {"description": "Webhook processed successfully"},
+              400: {"description": "Invalid webhook data"},
+              429: {"description": "Rate limit exceeded"},
+              500: {"description": "Processing error"}
+          })
 @limiter.limit(RATE_LIMITS["webhook"])
 async def whatsapp_webhook_with_limit(request: Request):
     return await handle_whatsapp_webhook(request)
@@ -325,7 +379,33 @@ class DatabaseBackup:
 # Add backup endpoints to main app
 backup_service = DatabaseBackup()
 
-@app.post("/admin/backup")
+@app.post("/admin/backup",
+          summary="Create Database Backup",
+          description="""
+          Create a database backup for administrative purposes.
+          
+          This endpoint allows administrators to create database backups
+          for data protection and disaster recovery purposes.
+          
+          **Features:**
+          - Database backup creation
+          - Data protection
+          - Disaster recovery
+          - Administrative access
+          - Backup management
+          
+          **Use Cases:**
+          - Data protection
+          - Disaster recovery
+          - System maintenance
+          - Administrative tasks
+          """,
+          tags=["Admin - System Management"],
+          responses={
+              200: {"description": "Backup created successfully"},
+              401: {"description": "Unauthorized access"},
+              500: {"description": "Backup error"}
+          })
 async def create_backup(current_coach: dict = Depends(get_current_coach)):
     """Create database backup (admin only)"""
     # Add admin role check here
@@ -340,7 +420,32 @@ import psutil
 import asyncpg
 from datetime import datetime
 
-@app.get("/health/detailed")
+@app.get("/health/detailed",
+         summary="Detailed Health Check",
+         description="""
+         Comprehensive health check for system monitoring.
+         
+         This endpoint provides detailed system health information including
+         resource usage, performance metrics, and component status.
+         
+         **Features:**
+         - Comprehensive health data
+         - Resource monitoring
+         - Performance metrics
+         - Component status
+         - System diagnostics
+         
+         **Use Cases:**
+         - System monitoring
+         - Health diagnostics
+         - Performance analysis
+         - Troubleshooting
+         """,
+         tags=["System Health"],
+         responses={
+             200: {"description": "Detailed health data retrieved successfully"},
+             500: {"description": "Health check error"}
+         })
 async def detailed_health_check():
     """Comprehensive health check for monitoring"""
     health_data = {

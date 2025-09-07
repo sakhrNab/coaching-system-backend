@@ -504,7 +504,65 @@ router = APIRouter()
 
 # API Endpoints
 
-@router.post("/register")
+@router.post("/register",
+             summary="Register New Coach",
+             description="""
+             Register a new coach in the system.
+             
+             **Registration Process:**
+             1. Coach provides barcode and WhatsApp token
+             2. System validates the barcode
+             3. Coach profile is created
+             4. WhatsApp integration is configured
+             
+             **Required Fields:**
+             - `barcode`: Unique identifier for the coach
+             - `whatsapp_token`: WhatsApp Business API access token
+             - `name`: Coach's full name
+             
+             **Optional Fields:**
+             - `email`: Coach's email address
+             - `timezone`: Coach's timezone (default: EST)
+             """,
+             tags=["Coach Registration"],
+             responses={
+                 200: {
+                     "description": "Coach registered successfully",
+                     "content": {
+                         "application/json": {
+                             "example": {
+                                 "id": "550e8400-e29b-41d4-a716-446655440000",
+                                 "name": "John Doe",
+                                 "email": "john@example.com",
+                                 "phone": "+1234567890",
+                                 "timezone": "EST",
+                                 "created_at": "2025-09-07T10:00:00Z",
+                                 "status": "active"
+                             }
+                         }
+                     }
+                 },
+                 400: {
+                     "description": "Invalid registration data",
+                     "content": {
+                         "application/json": {
+                             "example": {
+                                 "detail": "Invalid barcode or WhatsApp token"
+                             }
+                         }
+                     }
+                 },
+                 409: {
+                     "description": "Coach already exists",
+                     "content": {
+                         "application/json": {
+                             "example": {
+                                 "detail": "Coach with this barcode already exists"
+                             }
+                         }
+                     }
+                 }
+             })
 async def register_coach(registration: CoachRegistration):
     """Register a new coach via barcode scan"""
     try:
@@ -541,7 +599,52 @@ async def register_coach(registration: CoachRegistration):
         logger.error(f"Registration error: {e}")
         raise HTTPException(status_code=500, detail="Registration failed")
 
-@router.get("/coaches/{coach_id}/clients")
+@router.get("/coaches/{coach_id}/clients",
+            summary="Get Coach's Clients",
+            description="""
+            Retrieve all active clients for a specific coach.
+            
+            **Response includes:**
+            - Client basic information (name, phone, timezone)
+            - Coaching categories assigned to each client
+            - Client creation timestamp
+            - Active status
+            
+            **Use Cases:**
+            - Display client list in coach dashboard
+            - Select clients for message sending
+            - View client categories for filtering
+            """,
+            tags=["Client CRUD"],
+            responses={
+                200: {
+                    "description": "List of clients retrieved successfully",
+                    "content": {
+                        "application/json": {
+                            "example": [
+                                {
+                                    "id": "550e8400-e29b-41d4-a716-446655440000",
+                                    "name": "Jane Smith",
+                                    "phone_number": "+1234567890",
+                                    "categories": ["Health", "Fitness"],
+                                    "timezone": "EST",
+                                    "created_at": "2025-09-07T10:00:00Z"
+                                }
+                            ]
+                        }
+                    }
+                },
+                404: {
+                    "description": "Coach not found",
+                    "content": {
+                        "application/json": {
+                            "example": {
+                                "detail": "Coach not found"
+                            }
+                        }
+                    }
+                }
+            })
 async def get_clients(coach_id: str):
     """Get all clients for a coach"""
     try:
@@ -572,7 +675,64 @@ async def get_clients(coach_id: str):
         logger.error(f"Get clients error: {e}")
         raise HTTPException(status_code=500, detail="Failed to fetch clients")
 
-@router.post("/coaches/{coach_id}/clients")
+@router.post("/coaches/{coach_id}/clients",
+             summary="Add New Client",
+             description="""
+             Add a new client to a coach's client list.
+             
+             **Required Fields:**
+             - `name`: Client's full name
+             - `phone_number`: Client's phone number in E.164 format
+             
+             **Optional Fields:**
+             - `country`: Client's country (default: USA)
+             - `timezone`: Client's timezone (default: EST)
+             - `categories`: List of coaching categories
+             
+             **Validation:**
+             - Phone number must be in E.164 format (+1234567890)
+             - Client name must be unique per coach
+             - Categories must be from predefined list
+             """,
+             tags=["Client CRUD"],
+             responses={
+                 201: {
+                     "description": "Client added successfully",
+                     "content": {
+                         "application/json": {
+                             "example": {
+                                 "id": "550e8400-e29b-41d4-a716-446655440000",
+                                 "name": "Jane Smith",
+                                 "phone_number": "+1234567890",
+                                 "country": "USA",
+                                 "timezone": "EST",
+                                 "categories": ["Health", "Fitness"],
+                                 "created_at": "2025-09-07T10:00:00Z"
+                             }
+                         }
+                     }
+                 },
+                 400: {
+                     "description": "Invalid client data",
+                     "content": {
+                         "application/json": {
+                             "example": {
+                                 "detail": "Invalid phone number format"
+                             }
+                         }
+                     }
+                 },
+                 409: {
+                     "description": "Client already exists",
+                     "content": {
+                         "application/json": {
+                             "example": {
+                                 "detail": "Client with this phone number already exists"
+                             }
+                         }
+                     }
+                 }
+             })
 async def add_client(coach_id: str, client: Client):
     """Add a new client"""
     try:
@@ -627,7 +787,78 @@ async def add_client(coach_id: str, client: Client):
         logger.error(f"Add client error: {e}")
         raise HTTPException(status_code=500, detail=f"Failed to add client: {str(e)}")
 
-@router.post("/messages/send")
+@router.post("/messages/send",
+             summary="Send Messages to Clients",
+             description="""
+             Send messages to selected clients via WhatsApp.
+             
+             **Message Types:**
+             - **celebration**: Positive reinforcement messages (templates 6-10)
+             - **accountability**: Goal tracking messages (templates 1-5)
+             
+             **Schedule Types:**
+             - **now**: Send immediately
+             - **specific**: Send at a specific time
+             - **recurring**: Send on a recurring schedule
+             
+             **24-Hour Window Rule:**
+             - Custom messages can only be sent within 24 hours of a client's last message
+             - Template messages can be sent anytime
+             - Use the `/can-send-free` endpoint to check window status
+             """,
+             tags=["Message Sending"],
+             responses={
+                 200: {
+                     "description": "Messages sent successfully",
+                     "content": {
+                         "application/json": {
+                             "example": {
+                                 "message_id": "msg_123456789",
+                                 "status": "sent",
+                                 "recipients": ["+1234567890"],
+                                 "template_used": "celebration_message_6",
+                                 "sent_at": "2025-09-07T10:00:00Z"
+                             }
+                         }
+                     }
+                 },
+                 400: {
+                     "description": "Invalid request or 24-hour window violation",
+                     "content": {
+                         "application/json": {
+                             "example": {
+                                 "detail": "Cannot send custom message outside 24-hour window. Use a template instead."
+                             }
+                         }
+                     }
+                 },
+                 422: {
+                     "description": "Validation error",
+                     "content": {
+                         "application/json": {
+                             "example": {
+                                 "detail": [
+                                     {
+                                         "loc": ["body", "client_ids"],
+                                         "msg": "field required",
+                                         "type": "value_error.missing"
+                                     }
+                                 ]
+                             }
+                         }
+                     }
+                 },
+                 500: {
+                     "description": "Internal server error",
+                     "content": {
+                         "application/json": {
+                             "example": {
+                                 "detail": "Failed to send messages"
+                             }
+                         }
+                     }
+                 }
+             })
 async def send_messages(message_request: MessageRequest, background_tasks: BackgroundTasks):
     """Send messages to selected clients"""
     try:
@@ -774,7 +1005,33 @@ async def send_immediate_message(scheduled_message_id: str):
     except Exception as e:
         logger.error(f"Send immediate message error: {e}")
 
-@router.post("/voice/process")
+@router.post("/voice/process",
+             summary="Process Voice Message",
+             description="""
+             Process and transcribe voice messages from clients.
+             
+             This endpoint handles voice message processing, including transcription,
+             content analysis, and response generation for voice-based communications.
+             
+             **Features:**
+             - Voice transcription
+             - Content analysis
+             - Response generation
+             - Audio processing
+             - Message formatting
+             
+             **Use Cases:**
+             - Voice message handling
+             - Audio transcription
+             - Voice-based coaching
+             - Accessibility support
+             """,
+             tags=["Voice Processing"],
+             responses={
+                 200: {"description": "Voice message processed successfully"},
+                 400: {"description": "Invalid voice data"},
+                 500: {"description": "Processing error"}
+             })
 async def process_voice_message(voice_data: VoiceMessageProcessing):
     """Process voice message - transcribe and correct"""
     try:
@@ -827,19 +1084,108 @@ async def process_voice_message(voice_data: VoiceMessageProcessing):
         logger.error(f"Voice processing error: {e}")
         raise HTTPException(status_code=500, detail="Voice processing failed")
 
-@router.get("/test-webhook")
+@router.get("/test-webhook",
+            summary="Test Webhook Endpoint",
+            description="""
+            Test webhook endpoint accessibility.
+            
+            This endpoint provides a simple test to verify that the webhook
+            endpoint is accessible and responding correctly.
+            
+            **Features:**
+            - Endpoint accessibility test
+            - Basic response verification
+            - Webhook status check
+            - Simple health verification
+            
+            **Use Cases:**
+            - Webhook testing
+            - Endpoint verification
+            - Debugging
+            - Health checks
+            """,
+            tags=["Webhook Testing"],
+            responses={
+                200: {"description": "Webhook endpoint is accessible"},
+                500: {"description": "Webhook error"}
+            })
 async def test_webhook():
     """Test webhook endpoint accessibility"""
     logger.info("🧪 Test webhook endpoint accessed")
     return {"message": "Test webhook endpoint is accessible", "status": "success"}
 
-@router.get("/webhook/test")
+@router.get("/webhook/test",
+            summary="Test Webhook Path",
+            description="""
+            Test webhook path specifically.
+            
+            This endpoint provides a specific test for the webhook path
+            to verify routing and path handling.
+            
+            **Features:**
+            - Path-specific testing
+            - Routing verification
+            - Webhook path validation
+            - Path handling test
+            
+            **Use Cases:**
+            - Path testing
+            - Routing verification
+            - Webhook debugging
+            - Path validation
+            """,
+            tags=["Webhook Testing"],
+            responses={
+                200: {"description": "Webhook path is accessible"},
+                500: {"description": "Webhook path error"}
+            })
 async def test_webhook_path():
     """Test webhook path specifically"""
     logger.info("🧪 Test webhook path accessed")
     return {"message": "Test webhook path is accessible", "status": "success"}
 
-@router.get("/webhook/whatsapp")
+@router.get("/webhook/whatsapp",
+            summary="WhatsApp Webhook Verification",
+            description="""
+            Verify WhatsApp webhook endpoint for Meta's challenge-response verification.
+            
+            **Webhook Verification Process:**
+            1. Meta sends a GET request with verification parameters
+            2. System validates the verify_token
+            3. System returns the challenge value
+            4. Meta confirms webhook is properly configured
+            
+            **Required Parameters:**
+            - `hub.mode`: Must be 'subscribe'
+            - `hub.verify_token`: Must match WEBHOOK_VERIFY_TOKEN
+            - `hub.challenge`: Random string to echo back
+            
+            **Use Cases:**
+            - Initial webhook setup in Meta Developer Console
+            - Webhook verification and testing
+            - Ensuring webhook endpoint is accessible
+            """,
+            tags=["WhatsApp Webhooks"],
+            responses={
+                 200: {
+                     "description": "Webhook verified successfully",
+                     "content": {
+                         "text/plain": {
+                             "example": "1234567890"
+                         }
+                     }
+                 },
+                 403: {
+                     "description": "Webhook verification failed",
+                     "content": {
+                         "application/json": {
+                             "example": {
+                                 "detail": "Forbidden - Invalid verify token"
+                             }
+                         }
+                     }
+                 }
+             })
 async def verify_webhook(request: Request):
     """Verify webhook endpoint for Meta - following Meta's exact specification"""
     expected_token = os.getenv("WEBHOOK_VERIFY_TOKEN", "test-verify-token")
@@ -874,7 +1220,68 @@ async def verify_webhook(request: Request):
         logger.warning(f"❌ Webhook verification failed: mode={mode}, token={verify_token}")
         raise HTTPException(status_code=403, detail="Forbidden")
 
-@router.post("/webhook/whatsapp")
+@router.post("/webhook/whatsapp",
+             summary="WhatsApp Webhook Handler",
+             description="""
+             Handle incoming WhatsApp webhook events from Meta.
+             
+             **Supported Events:**
+             - `messages`: Incoming messages from users
+             - `message_echoes`: Outgoing message status updates
+             - `tracking_events`: Message delivery and read receipts
+             
+             **Event Processing:**
+             1. Validate webhook signature (if configured)
+             2. Parse incoming message data
+             3. Update conversation tracking for 24-hour window
+             4. Store message history
+             5. Trigger appropriate business logic
+             
+             **24-Hour Window Tracking:**
+             - Records user-initiated conversations
+             - Tracks message timestamps
+             - Enables free-form message sending within window
+             
+             **Security:**
+             - Validates webhook signature
+             - Rate limiting protection
+             - Input sanitization
+             """,
+             tags=["WhatsApp Webhooks"],
+             responses={
+                 200: {
+                     "description": "Webhook processed successfully",
+                     "content": {
+                         "application/json": {
+                             "example": {
+                                 "status": "success",
+                                 "message": "Webhook processed",
+                                 "events_processed": 1
+                             }
+                         }
+                     }
+                 },
+                 400: {
+                     "description": "Invalid webhook data",
+                     "content": {
+                         "application/json": {
+                             "example": {
+                                 "detail": "Invalid webhook payload"
+                             }
+                         }
+                     }
+                 },
+                 500: {
+                     "description": "Webhook processing failed",
+                     "content": {
+                         "application/json": {
+                             "example": {
+                                 "detail": "Failed to process webhook"
+                             }
+                         }
+                     }
+                 }
+             })
 async def whatsapp_webhook(webhook_data: WhatsAppWebhook, background_tasks: BackgroundTasks):
     """Handle incoming WhatsApp webhooks"""
     try:
@@ -1092,7 +1499,32 @@ async def send_google_sheet_to_coach(coach_id: str):
     except Exception as e:
         logger.error(f"Send stats error: {e}")
 
-@router.get("/coaches/{coach_id}/categories")
+@router.get("/coaches/{coach_id}/categories",
+            summary="Get Client Categories",
+            description="""
+            Get all available client categories for a coach.
+            
+            This endpoint retrieves both predefined and custom categories
+            that can be used to organize and filter clients.
+            
+            **Features:**
+            - Predefined categories
+            - Custom categories
+            - Category management
+            - Client organization
+            
+            **Use Cases:**
+            - Client categorization
+            - Filtering options
+            - Category management
+            - Client organization
+            """,
+            tags=["Client Categories"],
+            responses={
+                200: {"description": "Categories retrieved successfully"},
+                404: {"description": "Coach not found"},
+                500: {"description": "Database error"}
+            })
 async def get_categories(coach_id: str):
     """Get all categories (predefined + custom)"""
     try:
@@ -1116,7 +1548,33 @@ async def get_categories(coach_id: str):
         logger.error(f"Get categories error: {e}")
         raise HTTPException(status_code=500, detail="Failed to fetch categories")
 
-@router.post("/coaches/{coach_id}/categories")
+@router.post("/coaches/{coach_id}/categories",
+             summary="Add Custom Category",
+             description="""
+             Add a custom category for a coach.
+             
+             This endpoint allows coaches to create custom categories
+             for organizing their clients beyond the predefined options.
+             
+             **Features:**
+             - Custom category creation
+             - Category validation
+             - Coach-specific categories
+             - Category management
+             
+             **Use Cases:**
+             - Custom organization
+             - Specialized categorization
+             - Client grouping
+             - Category management
+             """,
+             tags=["Client Categories"],
+             responses={
+                 200: {"description": "Category added successfully"},
+                 400: {"description": "Invalid category data"},
+                 404: {"description": "Coach not found"},
+                 500: {"description": "Database error"}
+             })
 async def add_custom_category(coach_id: str, category_data: CategoryCreate):
     """Add custom category for coach"""
     try:
@@ -1132,7 +1590,32 @@ async def add_custom_category(coach_id: str, category_data: CategoryCreate):
         logger.error(f"Add category error: {e}")
         raise HTTPException(status_code=500, detail="Failed to add category")
 
-@router.get("/coaches/{coach_id}/export")
+@router.get("/coaches/{coach_id}/export",
+            summary="Export to Google Sheets",
+            description="""
+            Export client data to Google Sheets.
+            
+            This endpoint exports a coach's client data to a Google Sheets
+            spreadsheet for external analysis and reporting.
+            
+            **Features:**
+            - Google Sheets integration
+            - Client data export
+            - Spreadsheet creation
+            - Data formatting
+            
+            **Use Cases:**
+            - Data analysis
+            - External reporting
+            - Data backup
+            - Spreadsheet integration
+            """,
+            tags=["Data Export"],
+            responses={
+                200: {"description": "Data exported successfully"},
+                404: {"description": "Coach not found"},
+                500: {"description": "Export error"}
+            })
 async def export_to_google_sheets(coach_id: str):
     """Export client data to Google Sheets"""
     try:
@@ -1220,7 +1703,33 @@ async def export_to_google_sheets(coach_id: str):
         logger.error(f"Export error: {e}")
         raise HTTPException(status_code=500, detail=f"Export failed: {str(e)}")
 
-@router.get("/coaches/{coach_id}/stats")
+@router.get("/coaches/{coach_id}/stats",
+            summary="Get Coach Performance Statistics",
+            description="""
+            Get detailed performance statistics for a coach.
+            
+            This endpoint provides comprehensive performance metrics including
+            client counts, message statistics, and system usage data.
+            
+            **Features:**
+            - Performance metrics
+            - Client statistics
+            - Message activity
+            - System usage
+            - Trend analysis
+            
+            **Use Cases:**
+            - Performance monitoring
+            - Analytics reporting
+            - Dashboard display
+            - System optimization
+            """,
+            tags=["Analytics"],
+            responses={
+                200: {"description": "Statistics retrieved successfully"},
+                404: {"description": "Coach not found"},
+                500: {"description": "Database error"}
+            })
 async def get_coach_stats(coach_id: str):
     """Get coach performance statistics"""
     try:
@@ -1276,7 +1785,33 @@ async def get_coach_stats(coach_id: str):
         logger.error(f"Get coach stats error: {e}")
         raise HTTPException(status_code=500, detail=f"Failed to get coach stats: {str(e)}")
 
-@router.get("/coaches/{coach_id}/analytics")
+@router.get("/coaches/{coach_id}/analytics",
+            summary="Get Coach Analytics",
+            description="""
+            Get detailed analytics for a coach's performance.
+            
+            This endpoint provides comprehensive analytics including message
+            performance, client engagement, and system usage patterns.
+            
+            **Features:**
+            - Message analytics
+            - Client engagement metrics
+            - Performance trends
+            - Usage patterns
+            - Detailed insights
+            
+            **Use Cases:**
+            - Performance analysis
+            - Strategy optimization
+            - Client engagement tracking
+            - System usage monitoring
+            """,
+            tags=["Analytics"],
+            responses={
+                200: {"description": "Analytics retrieved successfully"},
+                404: {"description": "Coach not found"},
+                500: {"description": "Database error"}
+            })
 async def get_coach_analytics(coach_id: str):
     """Get detailed analytics for a coach"""
     try:
@@ -1318,7 +1853,33 @@ async def get_coach_analytics(coach_id: str):
         logger.error(f"Get coach analytics error: {e}")
         raise HTTPException(status_code=500, detail=f"Failed to get coach analytics: {str(e)}")
 
-@router.get("/coaches/{coach_id}/goals")
+@router.get("/coaches/{coach_id}/goals",
+            summary="Get Coach Goals",
+            description="""
+            Get all goals for a coach's clients.
+            
+            This endpoint retrieves all goals set for clients under a specific coach,
+            including goal details, progress, and status information.
+            
+            **Features:**
+            - Complete goals overview
+            - Progress tracking
+            - Status monitoring
+            - Client goal management
+            - Goal categorization
+            
+            **Use Cases:**
+            - Goal monitoring
+            - Progress tracking
+            - Client development
+            - Performance analysis
+            """,
+            tags=["Goal Management"],
+            responses={
+                200: {"description": "Goals retrieved successfully"},
+                404: {"description": "Coach not found"},
+                500: {"description": "Database error"}
+            })
 async def get_coach_goals(coach_id: str):
     """Get all goals for a coach's clients"""
     try:
@@ -1343,7 +1904,58 @@ async def get_coach_goals(coach_id: str):
         logger.error(f"Get coach goals error: {e}")
         raise HTTPException(status_code=500, detail=f"Failed to get coach goals: {str(e)}")
 
-@router.get("/coaches/{coach_id}/clients/{client_id}/can-send-free")
+@router.get("/coaches/{coach_id}/clients/{client_id}/can-send-free",
+            summary="Check 24-Hour Window Status",
+            description="""
+            Check if a free-form message can be sent to a client within Meta's 24-hour window.
+            
+            **24-Hour Window Rule:**
+            - Starts when the client sends a message to the coach
+            - Allows sending free-form messages (text, images, etc.) without templates
+            - Expires 24 hours after the client's last message
+            - After expiration, only pre-approved templates can be sent
+            
+            **Use Cases:**
+            - Check before sending custom messages
+            - Display warning in UI when window is closed
+            - Determine if template is required
+            """,
+            tags=["Message Sending"],
+            responses={
+                200: {
+                    "description": "24-hour window status",
+                    "content": {
+                        "application/json": {
+                            "example": {
+                                "can_send_free": True,
+                                "last_user_message": "2025-09-07T09:00:00Z",
+                                "window_expires_at": "2025-09-08T09:00:00Z",
+                                "hours_remaining": 23.5
+                            }
+                        }
+                    }
+                },
+                404: {
+                    "description": "Client not found",
+                    "content": {
+                        "application/json": {
+                            "example": {
+                                "detail": "Client not found"
+                            }
+                        }
+                    }
+                },
+                500: {
+                    "description": "Internal server error",
+                    "content": {
+                        "application/json": {
+                            "example": {
+                                "detail": "Failed to check window status"
+                            }
+                        }
+                    }
+                }
+            })
 async def can_send_free_message_to_client(coach_id: str, client_id: str):
     """Check if we can send a free message to a client (within 24h window)"""
     try:
@@ -1380,7 +1992,33 @@ async def can_send_free_message_to_client(coach_id: str, client_id: str):
         logger.error(f"Check free message eligibility error: {e}")
         raise HTTPException(status_code=500, detail="Failed to check message eligibility")
 
-@router.get("/coaches/{coach_id}/scheduled-messages")
+@router.get("/coaches/{coach_id}/scheduled-messages",
+            summary="Get Coach Scheduled Messages",
+            description="""
+            Get all scheduled messages for a coach.
+            
+            This endpoint retrieves all scheduled messages (pending, sent, failed)
+            for a specific coach, including their status, timing, and content.
+            
+            **Features:**
+            - Complete scheduled message list
+            - Status tracking
+            - Timing information
+            - Message content preview
+            - Filtering options
+            
+            **Use Cases:**
+            - Schedule management
+            - Message monitoring
+            - Status tracking
+            - Schedule optimization
+            """,
+            tags=["Message Scheduling"],
+            responses={
+                200: {"description": "Scheduled messages retrieved successfully"},
+                404: {"description": "Coach not found"},
+                500: {"description": "Database error"}
+            })
 async def get_scheduled_messages(coach_id: str):
     """Get all scheduled messages for a coach"""
     try:

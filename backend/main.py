@@ -15,16 +15,18 @@ load_dotenv()
 # Import all our API modules
 from .core_api import router as core_router
 from .admin_api import router as admin_router
+from .qr_onboarding import router as qr_onboarding_router
 # Removed duplicate webhook handlers - using core_api webhook only
 from .additional_backend_endpoints import router as additional_router
+from .meta_api_endpoints import router as meta_api_router
+from .sql_documentation import router as sql_docs_router
 from .database import db
+from .swagger_config import create_swagger_app, custom_openapi
+from .custom_swagger_ui import setup_custom_swagger_routes
 
-# Create main FastAPI app
-app = FastAPI(
-    title="Coaching System API",
-    description="AI-powered coaching platform with WhatsApp integration",
-    version="1.0.0"
-)
+# Create main FastAPI app with Swagger
+app = create_swagger_app()
+app.openapi = lambda: custom_openapi(app)
 
 # Add CORS middleware with explicit production domains
 app.add_middleware(
@@ -56,11 +58,17 @@ app.add_middleware(
     max_age=86400,  # Cache preflight for 24 hours
 )
 
-# Include all routers
-app.include_router(core_router, prefix="", tags=["core"])
-app.include_router(admin_router, prefix="/admin", tags=["admin"])
+# Include all routers with proper tags
+app.include_router(core_router, prefix="", tags=["System Health", "Coach Registration", "Client CRUD", "Message Sending", "WhatsApp Webhooks", "Voice Processing", "Webhook Testing", "Data Export", "Analytics", "Goal Management", "Message Scheduling"])
+app.include_router(admin_router, prefix="/admin", tags=["Admin - System Statistics", "Admin - Coach Management", "Admin - System Monitoring", "Admin - System Management", "Admin - Analytics"])
+app.include_router(qr_onboarding_router, tags=["QR Onboarding", "Coach Registration"])
 # Removed duplicate webhook router - using core_api webhook only
-app.include_router(additional_router, tags=["additional"])
+app.include_router(additional_router, tags=["Client CRUD", "Client Import/Export", "Client Categories", "Client History", "Message Templates", "Message Scheduling", "Analytics", "Goal Management", "Message Sending", "System Health", "System Configuration"])
+app.include_router(meta_api_router, tags=["Meta API - Internal Testing"])
+app.include_router(sql_docs_router, tags=["SQL Documentation"])
+
+# Setup custom Swagger UI with environment switching
+# setup_custom_swagger_routes(app)
 
 # Startup and shutdown events
 @app.on_event("startup")
@@ -71,15 +79,89 @@ async def startup_event():
 async def shutdown_event():
     await db.disconnect()
 
-@app.get("/")
+@app.get("/", 
+         summary="API Root",
+         description="Get basic API information and status",
+         tags=["Health & Status"],
+         responses={
+             200: {
+                 "description": "API is operational",
+                 "content": {
+                     "application/json": {
+                         "example": {
+                             "message": "Coaching System API",
+                             "status": "operational",
+                             "version": "1.0.0"
+                         }
+                     }
+                 }
+             }
+         })
 async def root():
-    return {"message": "Coaching System API", "status": "operational"}
+    return {"message": "Coaching System API", "status": "operational", "version": "1.0.0"}
 
-@app.get("/health")
+@app.get("/health",
+         summary="Basic Health Check",
+         description="Quick health check to verify API is running",
+         tags=["Health & Status"],
+         responses={
+             200: {
+                 "description": "API is healthy",
+                 "content": {
+                     "application/json": {
+                         "example": {
+                             "status": "healthy",
+                             "cors_enabled": True,
+                             "timestamp": "2025-09-07T10:00:00Z"
+                         }
+                     }
+                 }
+             }
+         })
 async def health_check():
-    return {"status": "healthy", "cors_enabled": True}
+    return {"status": "healthy", "cors_enabled": True, "timestamp": datetime.now().isoformat()}
 
-@app.get("/health/detailed")
+@app.get("/health/detailed",
+         summary="Detailed Health Check",
+         description="Comprehensive system health monitoring including database, environment variables, and service status",
+         tags=["Health & Status"],
+         responses={
+             200: {
+                 "description": "Detailed health information",
+                 "content": {
+                     "application/json": {
+                         "example": {
+                             "status": "healthy",
+                             "timestamp": "2025-09-07T10:00:00Z",
+                             "database": "connected",
+                             "environment": {
+                                 "db_host": True,
+                                 "db_password": True,
+                                 "openai_key": True,
+                                 "whatsapp_token": True
+                             },
+                             "services": {
+                                 "api": "running",
+                                 "database": "connected",
+                                 "cors": "enabled"
+                             }
+                         }
+                     }
+                 }
+             },
+             500: {
+                 "description": "System unhealthy",
+                 "content": {
+                     "application/json": {
+                         "example": {
+                             "status": "unhealthy",
+                             "error": "Database connection failed",
+                             "timestamp": "2025-09-07T10:00:00Z"
+                         }
+                     }
+                 }
+             }
+         })
 async def detailed_health_check():
     """Comprehensive system health monitoring"""
     try:
