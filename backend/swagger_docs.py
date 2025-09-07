@@ -46,10 +46,10 @@ class QRGenerateResponseDoc(BaseModel):
     """QR code generation response model"""
     image_qr: str = Field(..., description="Base64 encoded PNG QR code image", example="data:image/png;base64,iVBORw0KGgo...")
     text_qr: str = Field(..., description="Base64 encoded text QR code", example="data:text/plain;base64,Q29hY2ggUmVnaXN0cmF0aW9u...")
-    url: str = Field(..., description="Direct onboarding URL", example="https://coaches.aiwaverider.com/onboard/start?session=abc123")
+    url: str = Field(..., description="Direct onboarding URL", example="https://coach.aiwaverider.com/onboard/start?session=abc123")
     session_id: str = Field(..., description="Unique session ID", example="abc123def456")
     expires_at: datetime = Field(..., description="QR code expiration time", example="2025-09-07T10:15:00Z")
-    onboarding_url: str = Field(..., description="Mobile-friendly onboarding URL", example="https://coaches.aiwaverider.com/onboard/start?session=abc123")
+    onboarding_url: str = Field(..., description="Mobile-friendly onboarding URL", example="https://coach.aiwaverider.com/onboard/start?session=abc123")
 
 class OnboardSubmitRequestDoc(BaseModel):
     """Phone number submission for onboarding"""
@@ -116,10 +116,10 @@ EXAMPLE_RESPONSES = {
     "qr_generated": {
         "image_qr": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAcIA...",
         "text_qr": "data:text/plain;base64,Q29hY2ggUmVnaXN0cmF0aW9u...",
-        "url": "https://coaches.aiwaverider.com/onboard/start?session=abc123",
+        "url": "https://coach.aiwaverider.com/onboard/start?session=abc123",
         "session_id": "abc123def456",
         "expires_at": "2025-09-07T10:15:00Z",
-        "onboarding_url": "https://coaches.aiwaverider.com/onboard/start?session=abc123"
+        "onboarding_url": "https://coach.aiwaverider.com/onboard/start?session=abc123"
     },
     "templates_list": [
         {

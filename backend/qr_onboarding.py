@@ -448,10 +448,10 @@ qr_manager = QROnboardingManager()
                              "example": {
                                  "image_qr": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAcIA...",
                                  "text_qr": "data:text/plain;base64,Q29hY2ggUmVnaXN0cmF0aW9u...",
-                                 "url": "https://coaches.aiwaverider.com/onboard/start?session=abc123",
+                                 "url": "https://coach.aiwaverider.com/onboard/start?session=abc123",
                                  "session_id": "abc123def456",
                                  "expires_at": "2025-09-07T10:15:00Z",
-                                 "onboarding_url": "https://coaches.aiwaverider.com/onboard/start?session=abc123"
+                                 "onboarding_url": "https://coach.aiwaverider.com/onboard/start?session=abc123"
                              }
                          }
                      }
