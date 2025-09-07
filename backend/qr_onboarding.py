@@ -10,7 +10,7 @@ import io
 import base64
 from typing import Optional, Dict, Any
 from datetime import datetime, timedelta, timezone
-from fastapi import APIRouter, HTTPException, Depends, Request, Response, Query
+from fastapi import APIRouter, HTTPException, Depends, Request, Response
 from fastapi.responses import HTMLResponse, RedirectResponse
 from pydantic import BaseModel, Field
 import asyncio
@@ -37,6 +37,7 @@ LOGIN_SESSION_DAYS = 5
 class QRGenerateRequest(BaseModel):
     coach_id: Optional[str] = None
     expires_in_minutes: int = Field(default=15, description="QR session expiry in minutes")
+    base_url: Optional[str] = Field(default="https://coach.aiwaverider.com", description="Base URL for QR code generation")
 
 class QRGenerateResponse(BaseModel):
     image_qr: str  # PNG QR code image
@@ -496,7 +497,7 @@ qr_manager = QROnboardingManager()
                      }
                  }
              })
-async def generate_qr_code(request: QRGenerateRequest, base_url: str = Query("https://coach.aiwaverider.com")):
+async def generate_qr_code(request: QRGenerateRequest):
     """Generate QR code for onboarding"""
     try:
         # Create session
@@ -506,7 +507,7 @@ async def generate_qr_code(request: QRGenerateRequest, base_url: str = Query("ht
         )
         
         # Generate QR code (both image and text)
-        qr_data = qr_manager.generate_qr_code(session_data["session_id"], base_url)
+        qr_data = qr_manager.generate_qr_code(session_data["session_id"], request.base_url)
         
         return QRGenerateResponse(
             image_qr=qr_data["image_qr"],
@@ -514,7 +515,7 @@ async def generate_qr_code(request: QRGenerateRequest, base_url: str = Query("ht
             url=qr_data["url"],
             session_id=session_data["session_id"],
             expires_at=session_data["expires_at"],
-            onboarding_url=f"{base_url}/onboard/start?session={session_data['session_id']}"
+            onboarding_url=f"{request.base_url}/onboard/start?session={session_data['session_id']}"
         )
         
     except Exception as e:
