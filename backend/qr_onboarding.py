@@ -10,7 +10,7 @@ import io
 import base64
 from typing import Optional, Dict, Any
 from datetime import datetime, timedelta, timezone
-from fastapi import APIRouter, HTTPException, Depends, Request, Response
+from fastapi import APIRouter, HTTPException, Depends, Request, Response, Query
 from fastapi.responses import HTMLResponse, RedirectResponse
 from pydantic import BaseModel, Field
 import asyncio
@@ -205,15 +205,35 @@ class QROnboardingManager:
         """Get session details"""
         from .database import db
         
+        # Debug logging
+        logger.info(f"🔍 Getting session: {session_id}")
+        current_time = datetime.now(timezone.utc)
+        logger.info(f"⏰ Current time: {current_time}")
+        
         async with db.pool.acquire() as conn:
+            # First check if session exists at all
+            session_exists = await conn.fetchrow(
+                "SELECT * FROM onboarding_sessions WHERE session_id = $1",
+                session_id
+            )
+            
+            if not session_exists:
+                logger.warning(f"❌ Session {session_id} not found in database")
+                return None
+            
+            logger.info(f"✅ Session found: expires_at={session_exists['expires_at']}, status={session_exists['status']}")
+            
+            # Now check with expiry condition
             session = await conn.fetchrow(
                 "SELECT * FROM onboarding_sessions WHERE session_id = $1 AND expires_at > $2",
-                session_id, datetime.now(timezone.utc)
+                session_id, current_time
             )
             
             if not session:
+                logger.warning(f"❌ Session {session_id} expired. Expires at: {session_exists['expires_at']}, Current: {current_time}")
                 return None
                 
+            logger.info(f"✅ Session {session_id} is valid")
             return dict(session)
     
     async def check_coach_exists(self, phone: str) -> Optional[Dict[str, Any]]:
@@ -476,7 +496,7 @@ qr_manager = QROnboardingManager()
                      }
                  }
              })
-async def generate_qr_code(request: QRGenerateRequest, base_url: str = "https://coach.aiwaverider.com"):
+async def generate_qr_code(request: QRGenerateRequest, base_url: str = Query("https://coach.aiwaverider.com")):
     """Generate QR code for onboarding"""
     try:
         # Create session
